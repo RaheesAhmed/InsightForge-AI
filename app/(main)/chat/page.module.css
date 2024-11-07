@@ -1,0 +1,53 @@
+.main {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100vh;
+  background-color: #28282c;
+  overflow-y: hidden;
+}
+
+.container {
+  display: flex;
+  width: 100%;
+  height: 100vh;
+  background-color: #35353b;
+  overflow-y: hidden; /* Slightly different shade for the container */
+}
+
+.column {
+  display: flex;
+  flex-direction: column;
+  width: 50%;
+  height: calc(100% - 40px);
+  gap: 20px;
+  margin: 20px;
+  justify-content: space-between;
+  background-color: #35353b; /* Consistent background for columns */
+}
+
+.column > * {
+  border-radius: 16px;
+  overflow: hidden;
+  width: 100%;
+  height: 50%;
+  background-color: #000000; /* Dark elements in the columns */
+}
+
+.chatContainer {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  background-color: #28282c; /* Dark background for chat container */
+}
+
+.chat {
+  max-width: 1200px;
+  margin-top: 20px;
+  width: 800px;
+  height: 100%;
+
+  /* Ensuring text is visible */
+}
