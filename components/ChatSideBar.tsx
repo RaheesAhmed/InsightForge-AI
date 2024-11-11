@@ -42,7 +42,7 @@ const Sidebar: React.FC<SidebarProps> = ({
 }) => {
   const getSessionTitle = (session: SessionProps) => {
     if (session.title) return session.title;
-    return "New Contract";
+    return "New Chat";
   };
 
   const formatDate = (timestamp: number) => {
@@ -85,14 +85,14 @@ const Sidebar: React.FC<SidebarProps> = ({
           <span className="font-semibold">BuilderAssist AI</span>
         </div>
 
-        {/* New Contract Button */}
+        {/* New Chat Button */}
         <div className="flex items-center p-4">
           <Button
             onClick={onNewChat}
             className="w-full justify-start gap-2 bg-gradient-to-r from-yellow-500 to-yellow-400 text-slate-900 hover:from-yellow-400 hover:to-yellow-300 transition-all duration-300"
           >
             <Plus size={16} />
-            New Contract
+            New Chat
           </Button>
         </div>
 

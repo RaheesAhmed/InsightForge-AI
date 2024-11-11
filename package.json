@@ -1,7 +1,9 @@
 {
-  "name": "nexai_assistant",
+  "name": "insightforge-ai",
   "version": "0.1.0",
   "private": true,
+  "author": "Rahees Ahmed",
+  "license": "MIT",
   "scripts": {
     "dev": "next dev",
     "build": "next build",
