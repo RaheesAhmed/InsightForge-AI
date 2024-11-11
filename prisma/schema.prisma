@@ -10,36 +10,69 @@ datasource db {
 model User {
   id            String    @id @default(cuid())
   email         String    @unique
-  companyName   String
-  subscriptionStatus String
-  contracts     Contract[]
-  leads         Lead[]
+  name          String?
+  role          Role      @default(USER)
+  subscription  Subscription?
+  documents     Document[]
+  questions     Question[]
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 }
 
-model Contract {
+model Subscription {
   id            String    @id @default(cuid())
-  userId        String
+  userId        String    @unique
   user          User      @relation(fields: [userId], references: [id])
+  plan          Plan      @default(FREE)
+  status        Status    @default(ACTIVE)
+  documentsLimit Int
+  questionsLimit Int
+  questionsUsed  Int      @default(0)
+  validUntil    DateTime
+  stripeCustomerId String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+}
+
+model Document {
+  id            String    @id @default(cuid())
   title         String
-  content       String
-  status        String
-  clientEmail   String?
-  clientPhone   String?
+  description   String?
+  content       String    @db.Text
+  uploadedBy    String    // User ID
+  user          User      @relation(fields: [uploadedBy], references: [id])
+  isPublic      Boolean   @default(false)
+  questions     Question[]
+  vectorId      String?   // Reference to vector store
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 }
 
-model Lead {
+model Question {
   id            String    @id @default(cuid())
+  content       String
+  answer        String    @db.Text
   userId        String
   user          User      @relation(fields: [userId], references: [id])
-  name          String
-  email         String
-  phone         String?
-  status        String
-  notes         String?
+  documentId    String
+  document      Document  @relation(fields: [documentId], references: [id])
   createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+}
+
+enum Role {
+  ADMIN
+  USER
+}
+
+enum Plan {
+  FREE
+  BASIC
+  PREMIUM
+  ENTERPRISE
+}
+
+enum Status {
+  ACTIVE
+  CANCELLED
+  SUSPENDED
 }

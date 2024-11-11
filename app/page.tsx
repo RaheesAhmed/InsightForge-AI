@@ -1,82 +1,160 @@
 "use client";
 
-import React, { useState } from "react";
-import { Sparkles, ArrowRight } from "lucide-react";
+import { useState } from "react";
+import { ArrowRight, BookOpen, Users, Brain, Check } from "lucide-react";
 
 export default function LandingPage() {
   const [email, setEmail] = useState("");
-  const [isSubmitted, setIsSubmitted] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [success, setSuccess] = useState(false);
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    // TODO: Implement email submission logic
-    setIsSubmitted(true);
-    setEmail("");
+    setIsLoading(true);
+
+    try {
+      const response = await fetch("/api/collect-email", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email }),
+      });
+
+      if (response.ok) {
+        setSuccess(true);
+        setEmail("");
+      }
+    } catch (error) {
+      console.error("Error:", error);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
-    <div className="min-h-screen flex flex-col justify-center bg-gradient-to-br from-cyan-50 via-white to-emerald-50 p-4 font-sans">
-      <div className="max-w-md mx-auto w-full space-y-8">
-        <div className="text-center">
-          <div className="flex justify-center items-center space-x-2">
-            <Sparkles className="h-10 w-10 text-emerald-600" />
-            <h1 className="text-4xl font-extrabold text-gray-900 tracking-tight sm:text-5xl font-serif">
-              InsightForge AI
-            </h1>
+    <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white">
+      {/* Navigation */}
+      <nav className="p-4">
+        <div className="max-w-7xl mx-auto flex justify-between items-center">
+          <div className="flex items-center space-x-2">
+            <Brain className="h-8 w-8 text-indigo-600" />
+            <span className="text-xl font-bold text-gray-900">VirtuHelpX</span>
           </div>
-          <p className="mt-4 text-xl text-gray-600 font-light">
-            Revolutionize healthcare with AI-powered insights
-          </p>
         </div>
-        <form onSubmit={handleSubmit} className="mt-8 space-y-6">
-          <div className="rounded-md shadow-sm">
-            <div>
-              <label htmlFor="email-address" className="sr-only">
-                Email address
-              </label>
-              <input
-                id="email-address"
-                name="email"
-                type="email"
-                autoComplete="email"
-                required
-                className="appearance-none rounded-lg relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 focus:z-10 sm:text-sm transition duration-150 ease-in-out"
-                placeholder="Enter your email address"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-              />
+      </nav>
+
+      {/* Hero Section */}
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-16 pb-24">
+        <div className="text-center">
+          <h1 className="text-4xl tracking-tight font-extrabold text-gray-900 sm:text-5xl md:text-6xl lg:text-7xl">
+            <span className="block">Unlock the Secrets of</span>
+            <span className="block text-indigo-600 mt-2">
+              Business Leaders' Success
+            </span>
+          </h1>
+
+          <p className="mt-6 max-w-2xl mx-auto text-lg text-gray-600 sm:text-xl">
+            Get instant access to our exclusive guide featuring proven
+            strategies from top entrepreneurs. Learn how they built their
+            empires and apply their wisdom to your journey.
+          </p>
+
+          {/* Feature List */}
+          <div className="mt-8 max-w-2xl mx-auto">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 text-left">
+              {[
+                "Expert insights from industry leaders",
+                "Actionable success strategies",
+                "Real-world case studies",
+                "Practical implementation tips",
+              ].map((feature) => (
+                <div key={feature} className="flex items-center space-x-3">
+                  <Check className="h-5 w-5 text-green-500 flex-shrink-0" />
+                  <span className="text-gray-700">{feature}</span>
+                </div>
+              ))}
             </div>
           </div>
 
-          <div>
-            <button
-              type="submit"
-              className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-emerald-600 hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500 transition duration-150 ease-in-out"
+          {/* Email Collection Form */}
+          <div className="mt-12 max-w-xl mx-auto">
+            <form
+              onSubmit={handleSubmit}
+              className="flex flex-col sm:flex-row gap-3"
             >
-              <span className="absolute left-0 inset-y-0 flex items-center pl-3">
-                <ArrowRight
-                  className="h-5 w-5 text-emerald-500 group-hover:text-emerald-400"
-                  aria-hidden="true"
+              <div className="flex-1">
+                <label htmlFor="email" className="sr-only">
+                  Email address
+                </label>
+                <input
+                  type="email"
+                  id="email"
+                  required
+                  className="block w-full rounded-lg border-gray-300 px-5 py-3 text-base text-gray-900 placeholder-gray-500 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                  placeholder="Enter your email address"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
                 />
-              </span>
-              Get Early Access
-            </button>
+              </div>
+              <button
+                type="submit"
+                disabled={isLoading}
+                className="block rounded-lg bg-indigo-600 px-5 py-3 text-base font-medium text-white shadow hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 sm:px-10 disabled:opacity-75 whitespace-nowrap"
+              >
+                {isLoading ? "Sending..." : "Get Free Guide"}
+              </button>
+            </form>
+            {success && (
+              <div className="mt-4 text-sm text-green-600">
+                Check your email for the free guide! 🎉
+              </div>
+            )}
           </div>
-        </form>
-        {isSubmitted && (
-          <div className="mt-3 text-sm text-emerald-600 text-center font-medium">
-            Thank you! We'll be in touch soon with exclusive insights.
+
+          {/* Social Proof */}
+          <div className="mt-20">
+            <div className="grid grid-cols-1 gap-8 sm:grid-cols-2 lg:grid-cols-3">
+              <div className="bg-white rounded-lg shadow-sm p-6">
+                <BookOpen className="h-8 w-8 text-indigo-600 mx-auto" />
+                <h3 className="mt-4 text-lg font-semibold text-gray-900">
+                  Comprehensive Guide
+                </h3>
+                <p className="mt-2 text-gray-600">
+                  Detailed strategies and frameworks used by successful
+                  entrepreneurs
+                </p>
+              </div>
+
+              <div className="bg-white rounded-lg shadow-sm p-6">
+                <Users className="h-8 w-8 text-indigo-600 mx-auto" />
+                <h3 className="mt-4 text-lg font-semibold text-gray-900">
+                  Expert Network
+                </h3>
+                <p className="mt-2 text-gray-600">
+                  Learn from a curated network of successful business leaders
+                </p>
+              </div>
+
+              <div className="bg-white rounded-lg shadow-sm p-6">
+                <Brain className="h-8 w-8 text-indigo-600 mx-auto" />
+                <h3 className="mt-4 text-lg font-semibold text-gray-900">
+                  AI-Powered Insights
+                </h3>
+                <p className="mt-2 text-gray-600">
+                  Access personalized insights powered by advanced AI technology
+                </p>
+              </div>
+            </div>
           </div>
-        )}
-        <div className="mt-6 text-center">
-          <p className="text-sm text-gray-500">
-            Join the waitlist for our AI-powered healthcare optimization
-            platform.
+        </div>
+      </main>
+
+      {/* Footer */}
+      <footer className="bg-gray-50">
+        <div className="max-w-7xl mx-auto py-12 px-4 sm:px-6 lg:px-8">
+          <p className="text-center text-base text-gray-500">
+            © 2024 VirtuHelpX. All rights reserved.
           </p>
         </div>
-      </div>
-      <footer className="mt-16 text-center text-sm text-gray-500">
-        <p>&copy; 2024 InsightForge AI. All rights reserved.</p>
       </footer>
     </div>
   );
