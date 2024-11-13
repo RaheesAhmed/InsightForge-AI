@@ -4,8 +4,14 @@ import { prisma } from "@/lib/prisma";
 
 export async function POST(req: Request) {
   try {
-    const { id, email_addresses, username, first_name, last_name } =
-      await req.json();
+    const {
+      id,
+      email_addresses,
+      username,
+      first_name,
+      last_name,
+      theme_preference,
+    } = await req.json();
 
     // Basic validation
     if (!id || !email_addresses || !email_addresses.length) {
@@ -15,7 +21,7 @@ export async function POST(req: Request) {
       );
     }
 
-    // Check if user already exists in our database
+    // Check if user already exists
     const existingUser = await prisma.user.findUnique({
       where: { id },
     });
@@ -36,20 +42,23 @@ export async function POST(req: Request) {
       );
     }
 
-    // Create user in database with initial subscription
+    // Create user with theme preferences
     const user = await prisma.user.create({
       data: {
-        id: id, // Using Clerk's ID as our user ID
+        id: id,
         email: email_addresses[0].email_address,
         name: `${first_name || ""} ${last_name || ""}`.trim() || username || "",
+        theme_preferences: theme_preference
+          ? JSON.stringify(theme_preference)
+          : null,
         subscription: {
           create: {
             plan: "FREE",
             status: "ACTIVE",
-            documentsLimit: 3, // Set your free tier limits
+            documentsLimit: 3,
             questionsLimit: 20,
             questionsUsed: 0,
-            validUntil: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days from now
+            validUntil: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
           },
         },
       },

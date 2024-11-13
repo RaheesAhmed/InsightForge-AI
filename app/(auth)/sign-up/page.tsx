@@ -2,6 +2,7 @@
 
 import { SignUp } from "@clerk/nextjs";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
 
 export default function SignUpPage() {
   const router = useRouter();
@@ -19,6 +20,14 @@ export default function SignUpPage() {
           username: data.username,
           first_name: data.firstName,
           last_name: data.lastName,
+          theme_preference: {
+            primary: "#2563EB",
+            hover: "#1D4ED8",
+            gradient_start: "#EFF6FF",
+            gradient_end: "#E0E7FF",
+            text: "#4B5563",
+            headings: "#1F2937",
+          },
         }),
       });
 
@@ -29,27 +38,48 @@ export default function SignUpPage() {
       router.push("/chat");
     } catch (error) {
       console.error("Registration error:", error);
-      // You might want to show an error message to the user here
     }
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 to-slate-800">
-      <div className="max-w-md w-full p-6">
+    <div className="min-h-screen flex items-center justify-center ">
+      <div className="max-w-md w-full ">
         <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-white mb-2">Create Account</h1>
-          <p className="text-slate-400">Get started with your free account</p>
+          <div className="flex justify-center mb-6">
+            <Image
+              src="/logo.png"
+              alt="Logo"
+              width={60}
+              height={60}
+              className="rounded-xl"
+            />
+          </div>
+          <h1 className="text-3xl font-bold text-gray-800 mb-2">
+            Create Account
+          </h1>
+          <p className="text-gray-600">Get started with your free account</p>
         </div>
-        <div className="bg-white rounded-xl p-4 shadow-lg">
+        <div className="bg-white rounded-xl p-6 shadow-lg border border-gray-300">
           <SignUp
             appearance={{
               elements: {
                 formButtonPrimary:
-                  "bg-indigo-600 hover:bg-indigo-700 text-sm normal-case",
+                  "bg-blue-600 hover:bg-blue-700 text-sm normal-case",
+                card: "shadow-none",
+                headerTitle: "text-gray-800 text-xl",
+                headerSubtitle: "text-gray-600",
+                formFieldLabel: "text-gray-700",
+                formFieldInput:
+                  "border-gray-300 focus:ring-blue-500 focus:border-blue-500",
+                footerActionLink: "text-blue-600 hover:text-blue-700",
+                dividerLine: "bg-gray-200",
+                dividerText: "text-gray-500",
+                socialButtonsBlockButton: "border-gray-300 hover:bg-gray-50",
+                socialButtonsBlockButtonText: "text-gray-600",
               },
             }}
+            fallbackRedirectUrl="/chat"
             afterSignUpUrl="/chat"
-            afterSignUp={handleAfterSignUp}
           />
         </div>
       </div>
