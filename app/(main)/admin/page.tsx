@@ -1,5 +1,5 @@
 "use client";
-import React, { useState } from "react";
+import React, { useState, ChangeEvent } from "react";
 import { useUser } from "@clerk/clerk-react";
 import { SettingsModel } from "../../../components/SettingsModel";
 import EditCard from "../../../components/EditCard";
@@ -29,10 +29,8 @@ const Admin = () => {
 
   const sidebarItems = [
     { name: "Dashboard Overview", icon: LayoutDashboard },
-    { name: "Contract Management", icon: FileText },
+    { name: "Training Management", icon: FileText },
     { name: "Client Management", icon: Users },
-    { name: "Appointments", icon: Calendar },
-    { name: "Communications", icon: MessageSquare },
     { name: "Settings", icon: Settings },
   ];
 
@@ -40,7 +38,7 @@ const Admin = () => {
     switch (activeTab) {
       case "Dashboard Overview":
         return <DashboardOverview />;
-      case "Contract Management":
+      case "Training Management":
         return <DataManagement />;
       case "Client Management":
         return <UserManagement />;
@@ -56,35 +54,35 @@ const Admin = () => {
   };
 
   return (
-    <div className="flex min-h-screen bg-slate-50">
+    <div className="flex min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
       {/* Sidebar */}
-      <div className="w-72 bg-gradient-to-b from-slate-900 to-slate-800 text-white shadow-xl">
+      <div className="w-72 bg-gradient-to-b from-blue-100 to-indigo-200 text-gray-800">
         {/* Brand */}
-        <div className="p-6 border-b border-slate-700/50">
+        <div className="p-6 border-b border-blue-200">
           <div className="flex items-center gap-3">
-            <Building2 className="w-8 h-8 text-yellow-400" />
+            <Building2 className="w-8 h-8 text-blue-600" />
             <div>
-              <h1 className="text-xl font-bold">BuilderAssist AI</h1>
-              <p className="text-sm text-slate-400">Administration Portal</p>
+              <h1 className="text-xl font-bold text-gray-800">VirtuHelpX</h1>
+              <p className="text-sm text-gray-600">Administration Portal</p>
             </div>
           </div>
         </div>
 
         {/* User Profile */}
-        <div className="p-4 border-b border-slate-700/50">
-          <button className="w-full flex items-center gap-3 p-3 rounded-lg hover:bg-slate-700/50 transition-colors">
-            <div className="w-10 h-10 rounded-full bg-yellow-400 flex items-center justify-center text-slate-900 font-bold">
+        <div className="p-4 border-b border-blue-200">
+          <button className="w-full flex items-center gap-3 p-3 rounded-lg hover:bg-blue-200/50 transition-colors">
+            <div className="w-4 h-4 p-4 rounded-full bg-blue-600 flex items-center justify-center text-white font-bold">
               {user?.firstName?.[0] || "A"}
             </div>
             <div className="flex-1 text-left">
-              <div className="font-medium">
+              <div className="font-medium text-gray-800">
                 {user?.fullName || "Admin User"}
               </div>
-              <div className="text-sm text-slate-400">
+              <div className="text-sm text-gray-600">
                 {user?.primaryEmailAddress?.emailAddress}
               </div>
             </div>
-            <ChevronDown className="w-4 h-4 text-slate-400" />
+            <ChevronDown className="w-4 h-4 text-gray-600" />
           </button>
         </div>
 
@@ -95,8 +93,8 @@ const Admin = () => {
               key={item.name}
               className={`w-full text-left p-3 flex items-center gap-3 rounded-lg mb-1 transition-all duration-200 ${
                 activeTab === item.name
-                  ? "bg-yellow-400 text-slate-900"
-                  : "text-slate-300 hover:bg-yellow-400/20 hover:text-yellow-400"
+                  ? "bg-blue-600 text-white"
+                  : "text-gray-700 hover:bg-blue-200/50 hover:text-gray-900"
               }`}
               onClick={() => setActiveTab(item.name)}
             >
@@ -110,40 +108,40 @@ const Admin = () => {
       {/* Main content */}
       <div className="flex-1">
         {/* Header */}
-        <header className="bg-white shadow-sm border-b border-slate-200">
+        <header className="bg-white shadow-sm border-b border-gray-300">
           <div className="flex justify-between items-center px-8 py-4">
             <div>
-              <h2 className="text-2xl font-semibold text-slate-800">
+              <h2 className="text-2xl font-semibold text-gray-800">
                 {activeTab}
               </h2>
-              <p className="text-sm text-slate-500">
-                Manage your construction business
+              <p className="text-sm text-gray-600">
+                Manage your VirtuHelpX platform
               </p>
             </div>
 
             <div className="flex items-center gap-6">
               {/* Search */}
               <div className="relative">
-                <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                {/* <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
                 <input
                   type="text"
                   placeholder="Search..."
                   className="pl-10 pr-4 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-yellow-400"
-                />
+                /> */}
               </div>
 
               {/* Notifications */}
-              <button className="relative p-2 rounded-lg hover:bg-yellow-400/20 transition-colors">
+              {/* <button className="relative p-2 rounded-lg hover:bg-yellow-400/20 transition-colors">
                 <Bell className="w-5 h-5 text-slate-600" />
                 <span className="absolute top-1 right-1 w-2 h-2 bg-yellow-400 rounded-full"></span>
-              </button>
+              </button> */}
             </div>
           </div>
         </header>
 
         {/* Page Content */}
-        <div className="p-8">
-          <div className="bg-white rounded-xl shadow-sm border border-slate-200">
+        <div className="p-8 bg-gradient-to-br from-blue-50 to-indigo-100">
+          <div className="bg-white rounded-xl shadow-sm border border-gray-300">
             {renderContent()}
           </div>
         </div>
@@ -152,11 +150,17 @@ const Admin = () => {
   );
 };
 
-const DataManagement = () => {
-  const [file, setFile] = useState(null);
+interface FileData {
+  name: string;
+}
 
-  const handleFileChange = (e) => {
-    setFile(e.target.files[0]);
+const DataManagement = () => {
+  const [file, setFile] = useState<FileData | null>(null);
+
+  const handleFileChange = (e: ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      setFile(e.target.files[0]);
+    }
   };
 
   const handleUpload = async () => {
@@ -165,43 +169,9 @@ const DataManagement = () => {
   };
 
   return (
-    <div className="p-6 space-y-6">
-      {/* Stats Overview */}
-      <div className="grid grid-cols-4 gap-6 mb-8">
-        {[
-          { label: "Total Contracts", value: "1,234", change: "+12%" },
-          { label: "Active Contracts", value: "789", change: "+5%" },
-          { label: "Pending Review", value: "45", change: "-8%" },
-          { label: "Templates", value: "28", change: "+2%" },
-        ].map((stat) => (
-          <div
-            key={stat.label}
-            className="bg-slate-50 rounded-lg p-4 border border-slate-200"
-          >
-            <p className="text-sm text-slate-600">{stat.label}</p>
-            <div className="flex items-end gap-2 mt-1">
-              <p className="text-2xl font-semibold text-slate-800">
-                {stat.value}
-              </p>
-              <p
-                className={`text-sm ${
-                  stat.change.startsWith("+")
-                    ? "text-green-500"
-                    : "text-red-500"
-                }`}
-              >
-                {stat.change}
-              </p>
-            </div>
-          </div>
-        ))}
-      </div>
-
+    <div className="p-6 space-y-6 bg-white text-gray-800">
       {/* File Management */}
-      <div className="bg-slate-50 rounded-lg p-6 border border-slate-200">
-        <h3 className="text-lg font-semibold text-slate-800 mb-4">
-          Contract Templates
-        </h3>
+      <div>
         <FileViewer />
       </div>
     </div>

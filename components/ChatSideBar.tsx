@@ -5,13 +5,28 @@ import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
-import { Plus, FileText, Trash2, Settings, Building2 } from "lucide-react";
+import {
+  Plus,
+  FileText,
+  Trash2,
+  Settings,
+  Building2,
+  ChevronLeft,
+  ChevronRight,
+  MessageSquare,
+  Brain,
+  CircleChevronRight,
+  PanelRightOpen,
+  ArrowBigRight,
+} from "lucide-react";
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { useState } from "react";
+import SettingsSheet from "./SettingsSheet";
 
 type MessageProps = {
   role: "user" | "assistant" | "code";
@@ -40,6 +55,9 @@ const Sidebar: React.FC<SidebarProps> = ({
   onSelectChat,
   onClearAllChats,
 }) => {
+  const [isCollapsed, setIsCollapsed] = useState(false);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+
   const getSessionTitle = (session: SessionProps) => {
     if (session.title) return session.title;
     return "New Chat";
@@ -76,94 +94,177 @@ const Sidebar: React.FC<SidebarProps> = ({
     return groups;
   }, [sessions]);
 
+  // Modify the New Chat button click handler
+  const handleNewChat = () => {
+    onNewChat(); // This will directly start a new chat
+  };
+
   return (
     <TooltipProvider>
-      <div className="flex h-full w-[280px] flex-col bg-gradient-to-b from-slate-900 to-slate-800 text-white">
+      <div
+        data-sidebar
+        className={cn(
+          "fixed md:relative z-20 flex h-full flex-col bg-gray-50 border-r border-gray-200 transition-all duration-300",
+          "transform -translate-x-full md:translate-x-0",
+          isCollapsed ? "w-[60px]" : "w-[280px]"
+        )}
+      >
         {/* Logo Section */}
-        <div className="flex items-center p-4 border-b border-slate-700/50">
-          <Building2 className="w-6 h-6 text-yellow-500 mr-2" />
-          <span className="font-semibold">BuilderAssist AI</span>
-        </div>
-
-        {/* New Chat Button */}
-        <div className="flex items-center p-4">
+        <div className="flex items-center p-3 sm:p-4 border-b border-gray-200 bg-white justify-between">
+          <div className="flex items-center space-x-2">
+            <Brain className="h-8 w-8 text-indigo-600" />
+            {!isCollapsed && (
+              <span className="text-xl font-bold text-white">
+                <span className="text-indigo-600 font-bold text-2xl">
+                  Virtu HelpX
+                </span>
+              </span>
+            )}
+          </div>
           <Button
-            onClick={onNewChat}
-            className="w-full justify-start gap-2 bg-gradient-to-r from-yellow-500 to-yellow-400 text-slate-900 hover:from-yellow-400 hover:to-yellow-300 transition-all duration-300"
+            variant="ghost"
+            size="sm"
+            className="p-0 h-8 w-8  flex items-right justify-right "
+            onClick={() => setIsCollapsed(!isCollapsed)}
           >
-            <Plus size={16} />
-            New Chat
+            {isCollapsed ? (
+              <ChevronRight className="h-8 w-8 ml-4 font-bold rounded bg-indigo-600 text-white" />
+            ) : (
+              <ChevronLeft className="h-4 w-4" />
+            )}
           </Button>
         </div>
 
-        {/* Contracts List */}
+        {/* Update the New Chat Button */}
+        <div className="flex items-center p-4">
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                onClick={handleNewChat} // Use the new handler
+                className={cn(
+                  "justify-start gap-2 bg-indigo-600 text-white hover:bg-indigo-700 transition-all duration-200",
+                  isCollapsed ? "w-10 px-2" : "w-full"
+                )}
+              >
+                <Plus className="h-5 w-5" />
+                {!isCollapsed && "New Chat"}
+              </Button>
+            </TooltipTrigger>
+            {isCollapsed && (
+              <TooltipContent side="right">New Chat</TooltipContent>
+            )}
+          </Tooltip>
+        </div>
+
+        {/* Chat List */}
         <ScrollArea className="flex-1 px-2">
-          {Object.entries(groupedSessions).map(([date, dateSessions]) => (
-            <div key={date}>
-              <div className="px-3 py-2 text-xs text-slate-400 font-medium">
-                {date}
+          {!isCollapsed &&
+            Object.entries(groupedSessions).map(([date, dateSessions]) => (
+              <div key={date}>
+                <div className="px-3 py-2 text-xs text-gray-500 font-medium">
+                  {date}
+                </div>
+                {dateSessions.map((session, index) => {
+                  const actualIndex = sessions.findIndex(
+                    (s) => s.id === session.id
+                  );
+                  return (
+                    <Button
+                      key={session.id}
+                      onClick={() => onSelectChat(actualIndex)}
+                      variant="ghost"
+                      className={cn(
+                        "mb-1 w-full justify-start gap-2 rounded-lg py-2 text-left transition-all duration-200",
+                        actualIndex === activeSessionIndex
+                          ? "bg-white text-indigo-600 border border-gray-200 shadow-sm"
+                          : "text-gray-500 hover:bg-white hover:text-gray-600"
+                      )}
+                    >
+                      <MessageSquare className="h-4 w-4 shrink-0" />
+                      <span className="truncate text-sm">
+                        {getSessionTitle(session)}
+                      </span>
+                    </Button>
+                  );
+                })}
               </div>
-              {dateSessions.map((session, index) => {
-                const actualIndex = sessions.findIndex(
-                  (s) => s.id === session.id
-                );
-                return (
+            ))}
+          {isCollapsed &&
+            sessions.map((session, index) => (
+              <Tooltip key={session.id}>
+                <TooltipTrigger asChild>
                   <Button
-                    key={session.id}
-                    onClick={() => onSelectChat(actualIndex)}
+                    onClick={() => onSelectChat(index)}
+                    variant="ghost"
                     className={cn(
-                      "mb-1 w-full justify-start gap-2 rounded-lg py-3 text-left transition-all duration-200",
-                      actualIndex === activeSessionIndex
-                        ? "bg-yellow-500/20 text-yellow-500 hover:bg-yellow-500/30"
-                        : "text-slate-300 hover:bg-slate-700/50 hover:text-white"
+                      "mb-1 w-10 p-0 justify-center rounded-lg transition-all duration-200",
+                      index === activeSessionIndex
+                        ? "bg-white text-indigo-600 border border-gray-200 shadow-sm"
+                        : "text-gray-500 hover:bg-white hover:text-gray-600"
                     )}
                   >
-                    <FileText size={16} className="shrink-0" />
-                    <span className="truncate text-sm">
-                      {getSessionTitle(session)}
-                    </span>
+                    <MessageSquare className="h-4 w-4" />
                   </Button>
-                );
-              })}
-            </div>
-          ))}
+                </TooltipTrigger>
+                <TooltipContent side="right">
+                  {getSessionTitle(session)}
+                </TooltipContent>
+              </Tooltip>
+            ))}
         </ScrollArea>
 
         {/* Bottom Actions */}
-        <Separator className="my-2 bg-slate-700/50" />
+        <Separator className="bg-gray-200" />
         <div className="p-4 space-y-2">
           <Tooltip>
             <TooltipTrigger asChild>
               <Button
                 onClick={onClearAllChats}
                 variant="ghost"
-                className="w-full justify-start gap-2 text-slate-400 hover:bg-slate-700/50 hover:text-white transition-colors"
+                className={cn(
+                  "justify-start gap-2 text-gray-500 hover:bg-white hover:text-gray-600 transition-all duration-200",
+                  isCollapsed ? "w-10 px-2" : "w-full"
+                )}
               >
-                <Trash2 size={16} />
-                Clear History
+                <Trash2 className="h-4 w-4" />
+                {!isCollapsed && "Clear History"}
               </Button>
             </TooltipTrigger>
-            <TooltipContent side="right">
-              <p>Clear all contracts</p>
-            </TooltipContent>
+            <TooltipContent side="right">Clear all chats</TooltipContent>
           </Tooltip>
 
           <Tooltip>
             <TooltipTrigger asChild>
               <Button
                 variant="ghost"
-                className="w-full justify-start gap-2 text-slate-400 hover:bg-slate-700/50 hover:text-white transition-colors"
+                className={cn(
+                  "justify-start gap-2 text-gray-500 hover:bg-white hover:text-gray-600 transition-all duration-200",
+                  isCollapsed ? "w-10 px-2" : "w-full"
+                )}
+                onClick={() => setIsSettingsOpen(true)}
               >
-                <Settings size={16} />
-                Settings
+                <Settings className="h-4 w-4" />
+                {!isCollapsed && "Settings"}
               </Button>
             </TooltipTrigger>
             <TooltipContent side="right">
-              <p>Configure your preferences</p>
+              Configure your preferences
             </TooltipContent>
           </Tooltip>
         </div>
       </div>
+
+      {/* Mobile Overlay */}
+      <div
+        className="fixed inset-0 bg-black/20 backdrop-blur-sm z-10 md:hidden transition-opacity duration-300 opacity-0 pointer-events-none"
+        onClick={() => {
+          const sidebar = document.querySelector("[data-sidebar]");
+          sidebar?.classList.remove("translate-x-0");
+          sidebar?.classList.add("-translate-x-full");
+        }}
+      />
+
+      <SettingsSheet isOpen={isSettingsOpen} onOpenChange={setIsSettingsOpen} />
     </TooltipProvider>
   );
 };

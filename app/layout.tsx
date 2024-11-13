@@ -4,6 +4,7 @@ import { ClerkProvider } from "@clerk/nextjs";
 import "./globals.css";
 import AuthenticatedComponent from "@/components/AuthenticatedComponent";
 import NavBar from "@/components/NavBar";
+import { Toaster } from "sonner";
 
 export default function RootLayout({ children }: any) {
   return (
@@ -17,9 +18,6 @@ export default function RootLayout({ children }: any) {
           <div>
             {" "}
             {/* Wrapper div for your content */}
-            {/* <header>
-              <NavBar />
-            </header> */}
             <main>
               {/* <AuthenticatedComponent> */}
               {children}
@@ -27,6 +25,7 @@ export default function RootLayout({ children }: any) {
             </main>
           </div>
         </ClerkProvider>
+        <Toaster />
       </body>
     </html>
   );
