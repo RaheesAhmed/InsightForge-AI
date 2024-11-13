@@ -150,3 +150,55 @@ export async function POST(request: Request) {
     );
   }
 }
+
+export async function DELETE(request: Request) {
+  try {
+    const token = cookies().get("auth-token")?.value;
+    if (!token) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const payload = await verifyJWT(token);
+    if (!payload || !payload.userId) {
+      return NextResponse.json({ error: "Invalid token" }, { status: 401 });
+    }
+
+    // Get user's subscription
+    const subscription = await prisma.subscription.findUnique({
+      where: { userId: payload.userId },
+      select: { stripeCustomerId: true },
+    });
+
+    if (subscription?.stripeCustomerId) {
+      // Cancel the subscription in Stripe
+      const stripeSubscriptions = await stripe.subscriptions.list({
+        customer: subscription.stripeCustomerId,
+      });
+
+      // Cancel all active subscriptions for this customer
+      for (const sub of stripeSubscriptions.data) {
+        if (sub.status === "active") {
+          await stripe.subscriptions.update(sub.id, {
+            cancel_at_period_end: true,
+          });
+        }
+      }
+    }
+
+    // Update subscription in database to FREE plan at the end of the period
+    await prisma.subscription.update({
+      where: { userId: payload.userId },
+      data: {
+        status: "CANCELING",
+      },
+    });
+
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error("Error cancelling subscription:", error);
+    return NextResponse.json(
+      { error: "Failed to cancel subscription" },
+      { status: 500 }
+    );
+  }
+}

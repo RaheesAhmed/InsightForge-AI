@@ -19,6 +19,7 @@ export default function RootLayout({ children }: any) {
             {" "}
             {/* Wrapper div for your content */}
             <main>
+              {/* <NavBar /> */}
               {/* <AuthenticatedComponent> */}
               {children}
               {/* </AuthenticatedComponent> */}

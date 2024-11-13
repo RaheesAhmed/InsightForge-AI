@@ -121,20 +121,7 @@ const Admin = () => {
 
             <div className="flex items-center gap-6">
               {/* Search */}
-              <div className="relative">
-                {/* <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-                <input
-                  type="text"
-                  placeholder="Search..."
-                  className="pl-10 pr-4 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-yellow-400"
-                /> */}
-              </div>
-
-              {/* Notifications */}
-              {/* <button className="relative p-2 rounded-lg hover:bg-yellow-400/20 transition-colors">
-                <Bell className="w-5 h-5 text-slate-600" />
-                <span className="absolute top-1 right-1 w-2 h-2 bg-yellow-400 rounded-full"></span>
-              </button> */}
+              <div className="relative"></div>
             </div>
           </div>
         </header>

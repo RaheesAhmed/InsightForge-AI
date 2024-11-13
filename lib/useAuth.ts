@@ -49,7 +49,15 @@ export const useAuth = create<AuthState>()(
                 init.headers = {};
               }
 
-              if (!init.headers.hasOwnProperty("Authorization")) {
+              const url =
+                input instanceof Request ? input.url : input.toString();
+              const isSameOrigin =
+                url.startsWith(window.location.origin) || url.startsWith("/");
+
+              if (
+                isSameOrigin &&
+                !init.headers.hasOwnProperty("Authorization")
+              ) {
                 (init.headers as Record<string, string>)["Authorization"] =
                   authValue;
               }
@@ -59,7 +67,12 @@ export const useAuth = create<AuthState>()(
           }
         }
       },
-      logout: () => set({ token: null, user: null }),
+      logout: () => {
+        set({ token: null, user: null });
+        if (typeof window !== "undefined") {
+          window.localStorage.removeItem("auth-token");
+        }
+      },
       checkAuth: () => {
         const state = get();
         if (!state.token) return false;
@@ -69,12 +82,12 @@ export const useAuth = create<AuthState>()(
           const currentTime = Date.now() / 1000;
 
           if (decoded.exp && decoded.exp < currentTime) {
-            set({ token: null, user: null });
+            get().logout();
             return false;
           }
           return true;
         } catch (error) {
-          set({ token: null, user: null });
+          get().logout();
           return false;
         }
       },
@@ -84,10 +97,9 @@ export const useAuth = create<AuthState>()(
       storage: {
         getItem: (name) => {
           if (typeof window === "undefined") return null;
-          const str = window.localStorage.getItem(name);
-          if (!str) return null;
           try {
-            return JSON.parse(str);
+            const str = window.localStorage.getItem(name);
+            return str ? JSON.parse(str) : null;
           } catch {
             return null;
           }
@@ -100,6 +112,13 @@ export const useAuth = create<AuthState>()(
           if (typeof window === "undefined") return;
           window.localStorage.removeItem(name);
         },
+      },
+      partialize: (state) => {
+        const { token, user } = state;
+        return {
+          token,
+          user,
+        } as const;
       },
     }
   )

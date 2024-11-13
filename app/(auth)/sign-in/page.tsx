@@ -65,7 +65,7 @@ export default function SignInPage() {
       });
 
       // Force navigation to /chat
-      window.location.href = "/chat";
+      window.location.href = "/";
     } catch (error: any) {
       console.error("Login error:", error);
       toast({

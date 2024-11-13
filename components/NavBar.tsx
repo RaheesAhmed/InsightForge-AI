@@ -1,16 +1,32 @@
-import {
-  SignInButton,
-  SignUpButton,
-  SignedIn,
-  SignedOut,
-  UserButton,
-} from "@clerk/nextjs";
+"use client";
+
 import { Brain, MessageSquare, Home, CreditCard } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { useEffect } from "react";
+import { useAuth } from "@/lib/useAuth";
 
 const NavBar = () => {
   const router = useRouter();
+  const { user, checkAuth } = useAuth();
+
+  useEffect(() => {
+    const updateAuthState = async () => {
+      try {
+        const response = await fetch("/api/auth/session");
+        const data = await response.json();
+        if (data.token && data.user) {
+          useAuth.getState().setAuth(data.token, data.user);
+        }
+      } catch (error) {
+        console.error("Error updating auth state:", error);
+      }
+    };
+
+    if (checkAuth()) {
+      updateAuthState();
+    }
+  }, [checkAuth]);
 
   return (
     <nav className="w-full bg-white border-b border-gray-200 shadow-sm sticky top-0 z-50">
@@ -26,7 +42,7 @@ const NavBar = () => {
             </Link>
           </div>
 
-          <SignedIn>
+          {user && (
             <div className="hidden sm:ml-6 sm:flex sm:space-x-8">
               <NavLink
                 href="/"
@@ -44,21 +60,20 @@ const NavBar = () => {
                 text="Subscription"
               />
             </div>
-          </SignedIn>
+          )}
 
           <div className="flex items-center">
-            <SignedIn>
-              <UserButton
-                afterSignOutUrl="/"
-                appearance={{
-                  elements: {
-                    avatarBox: "h-8 w-8",
-                  },
-                }}
-              />
-            </SignedIn>
-
-            <SignedOut>
+            {user ? (
+              <div className="flex items-center space-x-4">
+                <span className="text-sm text-gray-700">{user.name}</span>
+                <button
+                  onClick={() => useAuth.getState().logout()}
+                  className="text-sm text-gray-600 hover:text-blue-600"
+                >
+                  Logout
+                </button>
+              </div>
+            ) : (
               <div className="flex items-center space-x-4">
                 <button
                   onClick={() => router.push("/sign-in")}
@@ -74,7 +89,7 @@ const NavBar = () => {
                   <span className="relative">Start free trial</span>
                 </button>
               </div>
-            </SignedOut>
+            )}
           </div>
         </div>
       </div>

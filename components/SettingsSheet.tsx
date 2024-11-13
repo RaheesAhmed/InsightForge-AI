@@ -18,7 +18,7 @@ import {
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { User, CreditCard, Package, Crown } from "lucide-react";
+import { User, CreditCard, Package, Crown, LogOut } from "lucide-react";
 import { Subscription, SubscriptionPlan } from "@/types/subscription";
 
 interface SettingsSheetProps {
@@ -51,12 +51,18 @@ const SettingsSheet: React.FC<SettingsSheetProps> = ({
   isOpen,
   onOpenChange,
 }) => {
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
   const [loading, setLoading] = React.useState(false);
 
   const currentPlan =
     SUBSCRIPTION_PLANS.find((plan) => plan.id === user?.subscription?.plan) ||
     SUBSCRIPTION_PLANS[0];
+
+  const handleLogout = () => {
+    logout();
+    onOpenChange(false); // Close the settings sheet after logout
+    window.location.href = "/"; // Redirect to home page
+  };
 
   const handleUpgrade = async (planId: string) => {
     if (!user) {
@@ -101,8 +107,17 @@ const SettingsSheet: React.FC<SettingsSheetProps> = ({
         side="right"
         className="w-full sm:w-[540px] overflow-hidden flex flex-col"
       >
-        <SheetHeader>
+        <SheetHeader className="flex flex-row justify-between items-center">
           <SheetTitle>Settings</SheetTitle>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={handleLogout}
+            className="h-8 w-8"
+            title="Logout"
+          >
+            <LogOut className="h-4 w-4" />
+          </Button>
         </SheetHeader>
 
         <div className="flex-1 overflow-y-auto space-y-6 py-6">
@@ -150,24 +165,6 @@ const SettingsSheet: React.FC<SettingsSheetProps> = ({
 
               {/* Usage Stats */}
               <div className="space-y-3">
-                <div>
-                  <div className="flex justify-between text-sm mb-1">
-                    <span>Documents Used</span>
-                    <span>
-                      {user?.subscription?.documentsUsed ?? 0}/
-                      {currentPlan.documentsPerMonth === -1
-                        ? "∞"
-                        : currentPlan.documentsPerMonth}
-                    </span>
-                  </div>
-                  <Progress
-                    value={
-                      ((user?.subscription?.documentsUsed ?? 0) /
-                        (currentPlan.documentsPerMonth || 1)) *
-                      100
-                    }
-                  />
-                </div>
                 <div>
                   <div className="flex justify-between text-sm mb-1">
                     <span>Questions Used</span>

@@ -4,53 +4,109 @@ import { useState } from "react";
 import {
   ArrowRight,
   BookOpen,
-  Users,
-  Brain,
-  Check,
-  Star,
+  MessageSquare,
   FileText,
   BarChart,
-  ArrowUpRight,
+  Shield,
+  Zap,
+  BookCheck,
+  Upload,
+  Check,
 } from "lucide-react";
 import NavBar from "@/components/NavBar";
+import { useAuth } from "@/lib/useAuth";
+import { toast } from "@/hooks/use-toast";
 
 export default function LandingPage() {
   const [email, setEmail] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const [success, setSuccess] = useState(false);
+  const { user } = useAuth();
 
   const features = [
     {
-      title: "Proven Business Strategies",
-      description: "Access battle-tested methods from successful entrepreneurs",
-      icon: <Star className="h-6 w-6 text-yellow-500" />,
+      title: "AI-Powered Document Analysis",
+      description:
+        "Interact with business documents using advanced AI technology",
+      icon: <MessageSquare className="h-6 w-6 text-indigo-500" />,
     },
     {
-      title: "Actionable Frameworks",
-      description: "Step-by-step implementation guides and templates",
-      icon: <FileText className="h-6 w-6 text-blue-500" />,
+      title: "Premium Business Content",
+      description:
+        "Access insights from leading entrepreneurs and business leaders",
+      icon: <BookCheck className="h-6 w-6 text-emerald-500" />,
     },
     {
-      title: "Growth Analytics",
-      description: "Key metrics and indicators for business success",
-      icon: <BarChart className="h-6 w-6 text-green-500" />,
+      title: "Custom Document Upload",
+      description: "Upload and analyze your own business documents",
+      icon: <Upload className="h-6 w-6 text-blue-500" />,
     },
   ];
 
-  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+  const plans = [
+    {
+      name: "Free",
+      price: "$0",
+      features: [
+        "1 document per month",
+        "3 AI questions per document",
+        "Basic document analysis",
+        "Community support",
+      ],
+      buttonText: "Start Free",
+      highlighted: false,
+    },
+    {
+      name: "Professional",
+      price: "$29",
+      period: "/month",
+      features: [
+        "10 documents per month",
+        "Unlimited AI questions",
+        "Advanced document analysis",
+        "Priority support",
+        "Custom document upload",
+        "Export capabilities",
+      ],
+      buttonText: "Get Started",
+      highlighted: true,
+    },
+    {
+      name: "Enterprise",
+      price: "Custom",
+      features: [
+        "Unlimited documents",
+        "Unlimited AI questions",
+        "White-label solution",
+        "Dedicated support",
+        "API access",
+        "Custom integrations",
+      ],
+      buttonText: "Contact Sales",
+      highlighted: false,
+    },
+  ];
+
+  const handleSubmit = async (e) => {
     e.preventDefault();
     setIsLoading(true);
 
+    if (!user) {
+      toast({
+        title: "Please sign in",
+        description: "You must be logged in to start your trial",
+      });
+      return;
+    }
+
     try {
-      const response = await fetch("/api/collect-email", {
+      const response = await fetch("/api/subscription", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email }),
       });
 
       if (response.ok) {
-        setSuccess(true);
-        setEmail("");
+        window.location.href = "/dashboard";
       }
     } catch (error) {
       console.error("Error:", error);
@@ -60,39 +116,39 @@ export default function LandingPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-blue-50 via-white to-white">
+    <div className="min-h-screen bg-gradient-to-b from-slate-50 via-white to-white">
       <header>
         <NavBar />
       </header>
 
       {/* Hero Section */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-16 pb-24">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-20 pb-24">
         <div className="text-center">
-          <div className="mb-8 inline-flex items-center rounded-full bg-blue-50 px-6 py-2 text-sm font-medium text-blue-700 ring-1 ring-inset ring-blue-700/10">
-            <span>Free Business Success Guide</span>
-            <ArrowRight className="ml-2 h-4 w-4" />
+          <div className="mb-8 inline-flex items-center rounded-full bg-indigo-50 px-6 py-2 text-sm font-medium text-indigo-600 ring-1 ring-inset ring-indigo-600/10">
+            <Zap className="mr-2 h-4 w-4" />
+            <span>AI-Powered Document Intelligence</span>
           </div>
 
-          <h1 className="text-4xl tracking-tight font-extrabold text-gray-900 sm:text-5xl md:text-6xl lg:text-7xl">
-            <span className="block">Transform Your Business with</span>
-            <span className="block text-blue-600 mt-2">
-              Expert Leadership Insights
+          <h1 className="text-3xl tracking-tight font-extrabold text-gray-900 sm:text-4xl md:text-6xl lg:text-5xl">
+            <span className="block">Transform Business Documents</span>
+            <span className="block text-indigo-600 mt-2">
+              Into Interactive Knowledge
             </span>
           </h1>
 
           <p className="mt-6 max-w-2xl mx-auto text-lg text-gray-600 sm:text-xl">
-            Download our comprehensive guide featuring proven strategies from
-            industry leaders. Learn the exact methods they used to build
-            successful enterprises.
+            Leverage AI to extract insights from business documents. Ask
+            questions, get answers, and make better decisions with our
+            intelligent document analysis platform.
           </p>
 
-          {/* Value Propositions */}
-          <div className="mt-8 max-w-3xl mx-auto">
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-3 text-left">
+          {/* Features Grid */}
+          <div className="mt-12 max-w-5xl mx-auto">
+            <div className="grid grid-cols-1 gap-6 sm:grid-cols-3">
               {features.map((feature) => (
                 <div
                   key={feature.title}
-                  className="bg-white rounded-xl p-6 shadow-sm"
+                  className="group relative bg-white rounded-2xl p-8 shadow-sm hover:shadow-md transition-shadow duration-300"
                 >
                   <div className="flex items-center mb-4">
                     {feature.icon}
@@ -106,105 +162,135 @@ export default function LandingPage() {
             </div>
           </div>
 
-          {/* What You'll Get Section */}
-          <div className="mt-16 bg-white rounded-2xl shadow-sm p-8 max-w-3xl mx-auto">
-            <h2 className="text-2xl font-bold text-gray-900 mb-6">
-              What You'll Get
+          {/* How It Works Section */}
+          <div className="mt-24 bg-gradient-to-r from-indigo-50 to-blue-50 rounded-3xl p-12 max-w-5xl mx-auto">
+            <h2 className="text-3xl font-bold text-gray-900 mb-12">
+              How It Works
             </h2>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-left">
-              {[
-                "50+ Pages of Actionable Content",
-                "Real Case Studies & Examples",
-                "Implementation Checklists",
-                "Growth Strategy Templates",
-                "Performance Metrics Guide",
-                "Expert Tips & Insights",
-                "Resource Directory",
-                "Success Frameworks",
-              ].map((item) => (
-                <div key={item} className="flex items-center space-x-3">
-                  <Check className="h-5 w-5 text-green-500 flex-shrink-0" />
-                  <span className="text-gray-700">{item}</span>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+              <div className="bg-white rounded-xl p-6 shadow-sm">
+                <div className="text-indigo-600 font-bold text-lg mb-2">1</div>
+                <h3 className="font-semibold text-gray-900 mb-2">
+                  Upload Documents
+                </h3>
+                <p className="text-sm text-gray-600">
+                  Upload business documents or access our premium content
+                  library
+                </p>
+              </div>
+              <div className="bg-white rounded-xl p-6 shadow-sm">
+                <div className="text-indigo-600 font-bold text-lg mb-2">2</div>
+                <h3 className="font-semibold text-gray-900 mb-2">
+                  Ask Questions
+                </h3>
+                <p className="text-sm text-gray-600">
+                  Interact with documents using natural language questions
+                </p>
+              </div>
+              <div className="bg-white rounded-xl p-6 shadow-sm">
+                <div className="text-indigo-600 font-bold text-lg mb-2">3</div>
+                <h3 className="font-semibold text-gray-900 mb-2">
+                  Get Insights
+                </h3>
+                <p className="text-sm text-gray-600">
+                  Receive AI-powered answers and actionable insights
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Pricing Section */}
+          <div className="mt-24">
+            <h2 className="text-3xl font-bold text-gray-900 mb-12">
+              Choose Your Plan
+            </h2>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-7xl mx-auto">
+              {plans.map((plan) => (
+                <div
+                  key={plan.name}
+                  className={`relative bg-white rounded-2xl p-8 ${
+                    plan.highlighted
+                      ? "ring-2 ring-indigo-600 shadow-lg"
+                      : "shadow-sm"
+                  }`}
+                >
+                  {plan.highlighted && (
+                    <div className="absolute -top-4 left-1/2 transform -translate-x-1/2">
+                      <div className="inline-flex rounded-full bg-indigo-600 px-4 py-1 text-sm font-semibold text-white">
+                        Most Popular
+                      </div>
+                    </div>
+                  )}
+                  <div className="text-center">
+                    <h3 className="text-lg font-semibold text-gray-900">
+                      {plan.name}
+                    </h3>
+                    <div className="mt-4 flex items-baseline justify-center gap-x-2">
+                      <span className="text-4xl font-bold tracking-tight text-gray-900">
+                        {plan.price}
+                      </span>
+                      {plan.period && (
+                        <span className="text-sm text-gray-600">
+                          {plan.period}
+                        </span>
+                      )}
+                    </div>
+                    <ul className="mt-8 space-y-4 text-sm text-gray-600">
+                      {plan.features.map((feature) => (
+                        <li
+                          key={feature}
+                          className="flex items-center justify-center"
+                        >
+                          <Check className="h-4 w-4 text-indigo-600 mr-3" />
+                          {feature}
+                        </li>
+                      ))}
+                    </ul>
+                    <button
+                      className={`mt-8 w-full rounded-lg px-4 py-2 text-sm font-semibold ${
+                        plan.highlighted
+                          ? "bg-indigo-600 text-white hover:bg-indigo-700"
+                          : "bg-gray-50 text-gray-900 hover:bg-gray-100"
+                      } transition-colors duration-200`}
+                    >
+                      {plan.buttonText}
+                    </button>
+                  </div>
                 </div>
               ))}
             </div>
           </div>
 
-          {/* Email Collection Form */}
-          <div className="mt-12 max-w-xl mx-auto">
-            <div className="bg-blue-50 rounded-2xl p-8">
-              <h3 className="text-xl font-bold text-gray-900 mb-4">
-                Get Your Free Guide Now
-              </h3>
-              <form
-                onSubmit={handleSubmit}
-                className="flex flex-col sm:flex-row gap-3"
-              >
-                <div className="flex-1">
-                  <label htmlFor="email" className="sr-only">
-                    Email address
-                  </label>
-                  <input
-                    type="email"
-                    id="email"
-                    required
-                    className="block w-full rounded-lg border-gray-300 px-5 py-3 text-base text-gray-900 placeholder-gray-500 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                    placeholder="Enter your email address"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                  />
-                </div>
-                <button
-                  type="submit"
-                  disabled={isLoading}
-                  className="block rounded-lg bg-blue-600 px-5 py-3 text-base font-medium text-white shadow hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 sm:px-10 disabled:opacity-75 whitespace-nowrap"
-                >
-                  {isLoading ? "Sending..." : "Download Free Guide"}
-                </button>
-              </form>
-              {success && (
-                <div className="mt-4 text-sm text-green-600 bg-green-50 p-3 rounded-lg">
-                  Success! Check your email for your free business guide! 🎉
-                </div>
-              )}
-              <p className="mt-4 text-xs text-gray-500">
-                Join thousands of entrepreneurs who have transformed their
-                businesses with our insights.
-              </p>
-            </div>
-          </div>
-
           {/* Trust Indicators */}
-          <div className="mt-20">
+          <div className="mt-24">
             <div className="grid grid-cols-1 gap-8 sm:grid-cols-3">
               <div className="bg-white rounded-xl shadow-sm p-6">
-                <BookOpen className="h-8 w-8 text-blue-600 mx-auto" />
+                <Shield className="h-8 w-8 text-indigo-600 mx-auto" />
                 <h3 className="mt-4 text-lg font-semibold text-gray-900">
-                  Expert Knowledge
+                  Enterprise Security
                 </h3>
                 <p className="mt-2 text-sm text-gray-600">
-                  Curated insights from successful business leaders and
-                  entrepreneurs
+                  Bank-level encryption and secure document handling
                 </p>
               </div>
 
               <div className="bg-white rounded-xl shadow-sm p-6">
-                <Users className="h-8 w-8 text-blue-600 mx-auto" />
+                <BarChart className="h-8 w-8 text-indigo-600 mx-auto" />
                 <h3 className="mt-4 text-lg font-semibold text-gray-900">
-                  10,000+ Downloads
+                  Advanced Analytics
                 </h3>
                 <p className="mt-2 text-sm text-gray-600">
-                  Trusted by thousands of ambitious entrepreneurs worldwide
+                  Detailed insights and usage analytics
                 </p>
               </div>
 
               <div className="bg-white rounded-xl shadow-sm p-6">
-                <Brain className="h-8 w-8 text-blue-600 mx-auto" />
+                <BookOpen className="h-8 w-8 text-indigo-600 mx-auto" />
                 <h3 className="mt-4 text-lg font-semibold text-gray-900">
-                  AI-Enhanced Insights
+                  Premium Content
                 </h3>
                 <p className="mt-2 text-sm text-gray-600">
-                  Advanced analysis powered by cutting-edge AI technology
+                  Curated business documents and case studies
                 </p>
               </div>
             </div>
@@ -221,8 +307,8 @@ export default function LandingPage() {
                 About VirtuHelpX
               </h4>
               <p className="text-sm text-gray-600">
-                Empowering entrepreneurs with AI-powered business insights and
-                strategies.
+                AI-powered document analysis platform for business leaders and
+                entrepreneurs.
               </p>
             </div>
             <div>

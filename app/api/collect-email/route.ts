@@ -21,7 +21,7 @@ export async function POST(req: Request) {
     // Save email to CSV
     const date = new Date().toISOString();
     const csvLine = `${email},${date}\n`;
-    await writeFile("leads.csv", csvLine, { flag: "a" });
+    await writeFile("@/public/leads.csv", csvLine, { flag: "a" });
 
     // Send email with PDF
     await transporter.sendMail({
