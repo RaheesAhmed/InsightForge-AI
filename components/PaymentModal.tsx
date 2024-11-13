@@ -13,9 +13,19 @@ import { toast } from "@/hooks/use-toast";
 interface PaymentModalProps {
   isOpen: boolean;
   onClose: () => void;
+  subscription?: {
+    questionsUsed: number;
+    documentsUsed: number;
+    questionsPerMonth: number;
+    documentsPerMonth: number;
+  };
 }
 
-const PaymentModal: React.FC<PaymentModalProps> = ({ isOpen, onClose }) => {
+const PaymentModal: React.FC<PaymentModalProps> = ({
+  isOpen,
+  onClose,
+  subscription,
+}) => {
   const { user, isLoaded } = useUser();
   const [loading, setLoading] = React.useState(false);
 
@@ -70,7 +80,25 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ isOpen, onClose }) => {
         <DialogHeader>
           <DialogTitle>Upgrade Your Plan</DialogTitle>
           <DialogDescription>
-            Choose a plan to continue using the chat
+            {subscription && (
+              <div className="mt-2 text-sm text-gray-500">
+                Current Usage:
+                <ul className="list-disc list-inside">
+                  <li>
+                    Questions: {subscription.questionsUsed}/
+                    {subscription.questionsPerMonth === -1
+                      ? "∞"
+                      : subscription.questionsPerMonth}
+                  </li>
+                  <li>
+                    Documents: {subscription.documentsUsed}/
+                    {subscription.documentsPerMonth === -1
+                      ? "∞"
+                      : subscription.documentsPerMonth}
+                  </li>
+                </ul>
+              </div>
+            )}
           </DialogDescription>
         </DialogHeader>
         <div className="grid gap-4 py-4">

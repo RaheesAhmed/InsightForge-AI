@@ -1,66 +1,26 @@
-import { clerkClient, auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
-import { SubscriptionPlan } from "@/types/subscription";
 import Stripe from "stripe";
+import { prisma } from "@/lib/prisma";
+import { verifyJWT } from "@/lib/jwt";
+import { cookies } from "next/headers";
 
 const stripe = new Stripe(process.env.NEXT_PUBLIC_STRIPE_SECRET_KEY!, {
   apiVersion: "2024-10-28.acacia",
 });
 
-const SUBSCRIPTION_PLANS: SubscriptionPlan[] = [
-  {
-    id: "free",
-    name: "Free",
-    tier: "free",
-    price: 0,
-    documentsPerMonth: 1,
-    questionsPerDocument: 3,
-    features: ["Basic document analysis", "Limited questions"],
-    stripePriceId: null,
-  },
-  {
-    id: "basic",
-    name: "Basic",
-    tier: "basic",
-    price: 9.99,
-    documentsPerMonth: 5,
-    questionsPerDocument: 10,
-    features: [
-      "Advanced document analysis",
-      "More questions per document",
-      "Priority support",
-    ],
-    stripePriceId: process.env.STRIPE_PRO_PRICE_ID ?? null,
-  },
-  {
-    id: "premium",
-    name: "Premium",
-    tier: "premium",
-    price: 29.99,
-    documentsPerMonth: -1,
-    questionsPerDocument: -1,
-    features: [
-      "Unlimited documents",
-      "Unlimited questions",
-      "Premium support",
-      "Custom features",
-    ],
-    stripePriceId: process.env.STRIPE_ENTERPRISE_PRICE_ID ?? null,
-  },
-];
-
 // Get subscription plans
 export async function GET() {
   try {
-    const products = await stripe.products.list({
-      active: true,
-      expand: ["data.default_price"],
-    });
-
-    const prices = await stripe.prices.list({
-      active: true,
-      type: "recurring",
-    });
+    const [products, prices] = await Promise.all([
+      stripe.products.list({
+        active: true,
+        expand: ["data.default_price"],
+      }),
+      stripe.prices.list({
+        active: true,
+        type: "recurring",
+      }),
+    ]);
 
     return NextResponse.json({
       products: products.data,
@@ -75,17 +35,55 @@ export async function GET() {
   }
 }
 
-// Update user's subscription
+// Create/Update subscription
 export async function POST(request: Request) {
   try {
-    const { userId, planId } = await request.json();
-
-    // Verify the user exists and has permission
-    const { userId: authenticatedUserId } = auth();
-    const user = await clerkClient.users.getUser(userId);
-
-    if (!authenticatedUserId || authenticatedUserId !== userId) {
+    // Get the auth token from cookies
+    const token = cookies().get("auth-token")?.value;
+    if (!token) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    // Verify the JWT token
+    const payload = await verifyJWT(token);
+    if (!payload || !payload.userId) {
+      return NextResponse.json({ error: "Invalid token" }, { status: 401 });
+    }
+
+    const { planId } = await request.json();
+
+    // Get user from database
+    const user = await prisma.user.findUnique({
+      where: { id: payload.userId },
+      include: { subscription: true },
+    });
+
+    if (!user) {
+      return NextResponse.json({ error: "User not found" }, { status: 404 });
+    }
+
+    // Handle free plan subscription
+    if (planId === "FREE") {
+      const subscription = await prisma.subscription.upsert({
+        where: { userId: user.id },
+        update: {
+          plan: "FREE",
+          documentsLimit: 3,
+          questionsLimit: 20,
+          status: "ACTIVE",
+          validUntil: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days
+        },
+        create: {
+          userId: user.id,
+          plan: "FREE",
+          documentsLimit: 3,
+          questionsLimit: 20,
+          status: "ACTIVE",
+          validUntil: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+        },
+      });
+
+      return NextResponse.json({ success: true, subscription });
     }
 
     // Get the product from Stripe
@@ -106,8 +104,27 @@ export async function POST(request: Request) {
       );
     }
 
+    // Create or get Stripe customer
+    let stripeCustomerId = user.subscription?.stripeCustomerId;
+    if (!stripeCustomerId) {
+      const customer = await stripe.customers.create({
+        email: user.email,
+        metadata: {
+          userId: user.id,
+        },
+      });
+      stripeCustomerId = customer.id;
+
+      // Update user's stripe customer ID
+      await prisma.subscription.update({
+        where: { userId: user.id },
+        data: { stripeCustomerId },
+      });
+    }
+
     // Create Stripe checkout session
     const session = await stripe.checkout.sessions.create({
+      customer: stripeCustomerId,
       payment_method_types: ["card"],
       line_items: [
         {
@@ -118,9 +135,8 @@ export async function POST(request: Request) {
       mode: "subscription",
       success_url: `${process.env.NEXTAUTH_URL}/chat?success=true`,
       cancel_url: `${process.env.NEXTAUTH_URL}/chat?canceled=true`,
-      customer_email: user.emailAddresses[0].emailAddress,
       metadata: {
-        userId: userId,
+        userId: user.id,
         planId: planId,
       },
     });

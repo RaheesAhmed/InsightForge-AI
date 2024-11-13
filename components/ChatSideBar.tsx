@@ -27,6 +27,7 @@ import {
 } from "@/components/ui/tooltip";
 import { useState } from "react";
 import SettingsSheet from "./SettingsSheet";
+import { useAuth } from "@/lib/useAuth";
 
 type MessageProps = {
   role: "user" | "assistant" | "code";
@@ -57,6 +58,9 @@ const Sidebar: React.FC<SidebarProps> = ({
 }) => {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const { user } = useAuth();
+
+  const userDisplayName = user?.name || user?.email?.split("@")[0] || "User";
 
   const getSessionTitle = (session: SessionProps) => {
     if (session.title) return session.title;
@@ -134,6 +138,18 @@ const Sidebar: React.FC<SidebarProps> = ({
             )}
           </Button>
         </div>
+
+        {/* Add User Info Section */}
+        {!isCollapsed && (
+          <div className="px-4 py-2 border-b border-gray-200">
+            <div className="text-sm font-medium text-gray-900">
+              {userDisplayName}
+            </div>
+            {user?.email && (
+              <div className="text-xs text-gray-500 truncate">{user.email}</div>
+            )}
+          </div>
+        )}
 
         {/* Update the New Chat Button */}
         <div className="flex items-center p-4">

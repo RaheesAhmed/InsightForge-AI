@@ -1,18 +1,18 @@
 export interface SubscriptionPlan {
   id: string;
   name: string;
-  tier: string;
+  description: string;
   price: number;
-  documentsPerMonth: number;
-  questionsPerDocument: number;
   features: string[];
-  stripePriceId: string | null;
+  documentsPerMonth: number;
+  questionsPerMonth: number;
 }
 
-export interface UserSubscription {
-  planId: string;
-  currentPeriodStart: number;
-  currentPeriodEnd: number;
+export interface Subscription {
+  plan: string;
+  documentsPerMonth: number;
+  questionsPerMonth: number;
+  questionsUsed: number;
   documentsUsed: number;
-  questionsUsed: Record<string, number>;
+  validUntil: Date;
 }

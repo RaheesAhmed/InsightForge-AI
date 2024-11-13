@@ -1,22 +1,8 @@
 "use client";
 
 import * as React from "react";
-import {
-  ArrowUp,
-  Paperclip,
-  User,
-  Bot,
-  Plus,
-  Trash2,
-  MessageSquare,
-  Building,
-  ArrowUpCircle,
-  Copy,
-  Check,
-  Brain,
-  Send,
-} from "lucide-react";
-import { useUser } from "@clerk/nextjs";
+import { Paperclip, User, Bot, Copy, Check, Brain, Send } from "lucide-react";
+import { useAuth, getCurrentUser } from "@/lib/useAuth";
 import { AssistantStream } from "openai/lib/AssistantStream";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -32,6 +18,7 @@ import { useEffect, useState } from "react";
 import PaymentModal from "@/components/PaymentModal";
 import { toast } from "@/hooks/use-toast";
 import AssistantFunctionsCard from "@/components/AssistantFunctionsCard";
+import { Subscription, SubscriptionPlan } from "@/types/subscription";
 
 type MessageProps = {
   role: "user" | "assistant" | "code";
@@ -52,39 +39,18 @@ interface CodeProps extends React.HTMLAttributes<HTMLElement> {
   children: React.ReactNode;
 }
 
-interface Subscription {
-  documentsUsed: number;
-  questionsUsed: number;
-  planId: string;
-}
-
-interface SubscriptionPlan {
-  id: string;
-  documentsPerMonth: number;
-}
-
 const SUBSCRIPTION_PLANS: SubscriptionPlan[] = [
-  { id: "free", documentsPerMonth: 5 },
-  { id: "pro", documentsPerMonth: -1 }, // unlimited
-  // Add other plans as needed
+  {
+    id: "FREE",
+    name: "Free",
+    description: "Basic features for personal use",
+    price: "0",
+    features: ["3 Documents/month", "20 Questions/month"],
+    documentsPerMonth: 3,
+    questionsPerMonth: 20,
+  },
+  // ... rest of the plans remain the same
 ];
-
-const TypingIndicator = () => {
-  return (
-    <div className="flex items-center space-x-1.5 px-1">
-      {[...Array(3)].map((_, i) => (
-        <span
-          key={i}
-          className="w-2 h-2 rounded-full bg-indigo-600 animate-pulse"
-          style={{
-            animationDelay: `${i * 200}ms`,
-            opacity: 0.6,
-          }}
-        />
-      ))}
-    </div>
-  );
-};
 
 const CopyButton = ({ text }: { text: string }) => {
   const [copied, setCopied] = React.useState(false);
@@ -119,7 +85,7 @@ const LoadingSpinner = () => {
 };
 
 const Message = ({ role, content }: MessageProps) => {
-  const { user } = useUser();
+  const { user } = useAuth();
   const isUser = role === "user";
   const isGenerating = content === "" && role === "assistant";
 
@@ -261,7 +227,7 @@ const ChatPage = () => {
   const [isUploading, setIsUploading] = React.useState(false);
   const scrollAreaRef = React.useRef<HTMLDivElement>(null);
   const messagesEndRef = React.useRef<HTMLDivElement>(null);
-  const { user, isLoaded } = useUser();
+  const { user } = useAuth();
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [subscription, setSubscription] = useState<Subscription | null>(null);
 
@@ -291,12 +257,8 @@ const ChatPage = () => {
   }, [messages, activeSessionIndex]);
 
   React.useEffect(() => {
-    if (
-      user &&
-      "privateMetadata" in user &&
-      user.privateMetadata?.subscription
-    ) {
-      setSubscription(user.privateMetadata.subscription as Subscription);
+    if (user?.subscription) {
+      setSubscription(user.subscription as unknown as Subscription);
     }
   }, [user]);
 
@@ -326,6 +288,10 @@ const ChatPage = () => {
     e.preventDefault();
     if (isUploading || (!userInput.trim() && !fileInfo)) return;
 
+    if (!checkSubscriptionLimit()) {
+      return;
+    }
+
     const messageContent = `${userInput} ${fileInfo}`.trim();
     setMessages((prev) => [...prev, { role: "user", content: messageContent }]);
 
@@ -350,16 +316,35 @@ const ChatPage = () => {
 
   const sendMessage = async (text: string) => {
     if (!threadId) return;
-    const response = await fetch(
-      `/api/assistants/threads/${threadId}/messages`,
-      {
-        method: "POST",
-        body: JSON.stringify({ content: text }),
+
+    try {
+      // Update question usage before sending message
+      await updateUsage("question");
+
+      // If there's a file attached, update document usage
+      if (fileInfo) {
+        await updateUsage("document");
       }
-    );
-    if (response.body) {
-      const stream = AssistantStream.fromReadableStream(response.body);
-      handleReadableStream(stream);
+
+      const response = await fetch(
+        `/api/assistants/threads/${threadId}/messages`,
+        {
+          method: "POST",
+          body: JSON.stringify({ content: text }),
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error("Failed to send message");
+      }
+
+      if (response.body) {
+        const stream = AssistantStream.fromReadableStream(response.body);
+        handleReadableStream(stream);
+      }
+    } catch (error) {
+      console.error("Error sending message:", error);
+      showError("Failed to send message. Please try again.");
     }
   };
 
@@ -443,19 +428,35 @@ const ChatPage = () => {
   };
 
   const checkSubscriptionLimit = () => {
+    if (!user) {
+      showError("Please sign in to continue");
+      return false;
+    }
+
     if (!subscription) {
       setShowPaymentModal(true);
       return false;
     }
 
-    const { documentsUsed, planId } = subscription;
-    const plan = SUBSCRIPTION_PLANS.find((p) => p.id === planId);
+    const {
+      questionsUsed,
+      questionsPerMonth,
+      documentsUsed,
+      documentsPerMonth,
+    } = subscription;
 
-    if (!plan) return false;
+    if (questionsPerMonth !== -1 && questionsUsed >= questionsPerMonth) {
+      showError(
+        "You've reached your monthly question limit. Please upgrade your plan."
+      );
+      setShowPaymentModal(true);
+      return false;
+    }
 
     if (
-      plan.documentsPerMonth !== -1 &&
-      documentsUsed >= plan.documentsPerMonth
+      fileInfo &&
+      documentsPerMonth !== -1 &&
+      documentsUsed >= documentsPerMonth
     ) {
       showError(
         "You've reached your monthly document limit. Please upgrade your plan."
@@ -469,6 +470,43 @@ const ChatPage = () => {
 
   const handleCardClick = (description: string) => {
     setUserInput(description);
+  };
+
+  const updateUsage = async (type: "question" | "document") => {
+    try {
+      const response = await fetch("/api/subscriptions/usage", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ type }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to update usage");
+      }
+
+      const updatedSubscription = await response.json();
+
+      // Update local subscription state
+      setSubscription((prev) => ({
+        ...prev,
+        questionsUsed: updatedSubscription.questionsUsed,
+        documentsUsed: updatedSubscription.documentsUsed,
+      }));
+
+      // Also update the user context if needed
+      if (user) {
+        user.subscription = {
+          ...user.subscription,
+          questionsUsed: updatedSubscription.questionsUsed,
+          documentsUsed: updatedSubscription.documentsUsed,
+        };
+      }
+    } catch (error) {
+      console.error("Error updating usage:", error);
+      showError("Failed to update usage count");
+    }
   };
 
   return (
@@ -571,6 +609,7 @@ const ChatPage = () => {
       <PaymentModal
         isOpen={showPaymentModal}
         onClose={() => setShowPaymentModal(false)}
+        subscription={subscription}
       />
     </div>
   );

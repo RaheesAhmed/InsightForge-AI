@@ -1,56 +1,42 @@
-import { clerkClient } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { signJWT } from "@/lib/jwt";
+import bcrypt from "bcryptjs";
 
 export async function POST(req: Request) {
   try {
-    const {
-      id,
-      email_addresses,
-      username,
-      first_name,
-      last_name,
-      theme_preference,
-    } = await req.json();
+    const { email, password, username, firstName, lastName } = await req.json();
 
-    // Basic validation
-    if (!id || !email_addresses || !email_addresses.length) {
+    // Validate required fields
+    if (!email || !password) {
       return NextResponse.json(
-        { error: "Missing required fields" },
+        { error: "Email and password are required" },
         { status: 400 }
       );
     }
 
     // Check if user already exists
     const existingUser = await prisma.user.findUnique({
-      where: { id },
+      where: { email },
     });
 
     if (existingUser) {
       return NextResponse.json(
-        { error: "User already exists" },
+        { error: "Email already registered" },
         { status: 409 }
       );
     }
 
-    // Verify the user exists in Clerk
-    const clerkUser = await clerkClient.users.getUser(id);
-    if (!clerkUser) {
-      return NextResponse.json(
-        { error: "User not found in Clerk" },
-        { status: 404 }
-      );
-    }
-
-    // Create user with theme preferences
+    // Create user in database
     const user = await prisma.user.create({
       data: {
-        id: id,
-        email: email_addresses[0].email_address,
-        name: `${first_name || ""} ${last_name || ""}`.trim() || username || "",
-        theme_preferences: theme_preference
-          ? JSON.stringify(theme_preference)
-          : null,
+        email,
+        hashedPassword: await bcrypt.hash(password, 10),
+        name:
+          [firstName, lastName].filter(Boolean).join(" ").trim() ||
+          username ||
+          "",
+        username,
         subscription: {
           create: {
             plan: "FREE",
@@ -62,13 +48,34 @@ export async function POST(req: Request) {
           },
         },
       },
-      include: {
+      select: {
+        id: true,
+        email: true,
+        name: true,
+
+        role: true,
         subscription: true,
       },
     });
 
-    return NextResponse.json({ user });
-  } catch (error) {
+    // Generate JWT token
+    const token = signJWT({
+      userId: user.id,
+      email: user.email,
+      role: user.role,
+    });
+
+    return NextResponse.json({
+      user: {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+
+        role: user.role,
+      },
+      token,
+    });
+  } catch (error: any) {
     console.error("Registration error:", error);
     return NextResponse.json(
       { error: "Failed to register user" },

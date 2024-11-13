@@ -1,23 +1,19 @@
-import { clerkMiddleware, auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
+import { verifyJWT } from "./lib/jwt";
+import type { NextRequest } from "next/server";
+import { clerkMiddleware } from "@clerk/nextjs/server";
 
-// Clerk admin user ID
-const ADMIN_USER_IDS = process.env.ADMIN_USER_IDS?.split(",") || [];
+interface JWTPayload {
+  userId: string;
+  email: string;
+  name?: string;
+  role?: string;
+}
 
-export default clerkMiddleware((auth, req) => {
-  // Check if the request is for the admin route
-  if (req.nextUrl.pathname.startsWith("/admin")) {
-    const userId = auth().userId;
+const middleware = clerkMiddleware();
 
-    // If user is not logged in or not an admin, redirect to home
-    if (!userId || !ADMIN_USER_IDS.includes(userId)) {
-      return NextResponse.redirect(new URL("/", req.url));
-    }
-  }
-
-  return NextResponse.next();
-});
+export default middleware;
 
 export const config = {
-  matcher: ["/((?!.+\\.[\\w]+$|_next).*)", "/", "/(api|trpc)(.*)"],
+  matcher: ["/api/:path*", "/chat/:path*"],
 };

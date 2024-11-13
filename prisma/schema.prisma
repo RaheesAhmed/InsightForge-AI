@@ -11,14 +11,17 @@ datasource db {
 model User {
   id            String    @id @default(cuid())
   email         String    @unique
+  hashedPassword String?
   name          String?
-  username      String?
+  username      String?   @unique
   role          Role      @default(USER)
   subscription  Subscription?
   documents     Document[]
   questions     Question[]
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
+
+  @@index([email])
 }
 
 model Subscription {
@@ -30,6 +33,7 @@ model Subscription {
   documentsLimit Int
   questionsLimit Int
   questionsUsed  Int      @default(0)
+  documentsUsed  Int      @default(0)
   validUntil    DateTime
   stripeCustomerId String?
   createdAt     DateTime  @default(now())

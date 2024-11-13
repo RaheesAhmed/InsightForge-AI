@@ -1,52 +1,100 @@
-import { clerkClient } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { signJWT } from "@/lib/jwt";
+import bcrypt from "bcryptjs";
+import { cookies } from "next/headers";
 
 export async function POST(req: Request) {
   try {
-    const { id } = await req.json();
+    const { email, password } = await req.json();
 
-    // Verify the user exists in Clerk
-    const clerkUser = await clerkClient.users.getUser(id);
-    if (!clerkUser) {
+    if (!email || !password) {
       return NextResponse.json(
-        { error: "User not found in Clerk" },
-        { status: 404 }
+        { error: "Email and password are required" },
+        { status: 400 }
       );
     }
 
-    // Find or create user in our database
-    const user = await prisma.user.upsert({
-      where: { id },
-      update: {}, // No updates needed on login
-      create: {
-        id,
-        email: clerkUser.emailAddresses[0].emailAddress,
-        name:
-          `${clerkUser.firstName || ""} ${clerkUser.lastName || ""}`.trim() ||
-          clerkUser.username ||
-          "",
+    const user = await prisma.user.findUnique({
+      where: { email },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        role: true,
+        hashedPassword: true,
         subscription: {
-          create: {
-            plan: "FREE",
-            status: "ACTIVE",
-            documentsLimit: 3,
-            questionsLimit: 20,
-            questionsUsed: 0,
-            validUntil: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+          select: {
+            plan: true,
+            documentsLimit: true,
+            questionsLimit: true,
+            questionsUsed: true,
+            validUntil: true,
+            status: true,
           },
         },
       },
-      include: {
-        subscription: true,
-      },
     });
 
-    return NextResponse.json({ user });
+    if (!user || !user.hashedPassword) {
+      return NextResponse.json(
+        { error: "Invalid credentials" },
+        { status: 401 }
+      );
+    }
+
+    const isValidPassword = await bcrypt.compare(password, user.hashedPassword);
+
+    if (!isValidPassword) {
+      return NextResponse.json(
+        { error: "Invalid credentials" },
+        { status: 401 }
+      );
+    }
+
+    const token = signJWT({
+      userId: user.id,
+      email: user.email,
+      name: user.name || undefined,
+      role: user.role,
+    });
+
+    const userData = {
+      id: user.id,
+      email: user.email,
+      name: user.name,
+      role: user.role,
+      subscription: user.subscription
+        ? {
+            plan: user.subscription.plan,
+            documentsPerMonth: user.subscription.documentsLimit,
+            questionsPerMonth: user.subscription.questionsLimit,
+            questionsUsed: user.subscription.questionsUsed,
+            validUntil: user.subscription.validUntil,
+          }
+        : null,
+    };
+
+    // Set the auth token as an HTTP-only cookie
+    cookies().set({
+      name: "auth-token",
+      value: token,
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      path: "/",
+      maxAge: 60 * 60 * 24, // 24 hours
+    });
+
+    return NextResponse.json({
+      user: userData,
+      token,
+      redirect: "/chat",
+    });
   } catch (error) {
     console.error("Login error:", error);
     return NextResponse.json(
-      { error: "Failed to process login" },
+      { error: "Authentication failed" },
       { status: 500 }
     );
   }

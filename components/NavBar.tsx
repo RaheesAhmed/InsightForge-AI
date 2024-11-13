@@ -7,8 +7,11 @@ import {
 } from "@clerk/nextjs";
 import { Brain, MessageSquare, Home, CreditCard } from "lucide-react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 
 const NavBar = () => {
+  const router = useRouter();
+
   return (
     <nav className="w-full bg-white border-b border-gray-200 shadow-sm sticky top-0 z-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -57,17 +60,19 @@ const NavBar = () => {
 
             <SignedOut>
               <div className="flex items-center space-x-4">
-                <SignInButton mode="modal">
-                  <button className="relative inline-flex items-center justify-center px-6 py-2.5 text-blue-600 font-medium bg-blue-50/40 rounded-full overflow-hidden hover:bg-blue-50 transition-all duration-300 hover:shadow-md hover:scale-105 active:scale-100">
-                    <span className="relative">Log in</span>
-                  </button>
-                </SignInButton>
+                <button
+                  onClick={() => router.push("/sign-in")}
+                  className="relative inline-flex items-center justify-center px-6 py-2.5 text-blue-600 font-medium bg-blue-50/40 rounded-full overflow-hidden hover:bg-blue-50 transition-all duration-300 hover:shadow-md hover:scale-105 active:scale-100"
+                >
+                  <span className="relative">Log in</span>
+                </button>
 
-                <SignUpButton mode="modal">
-                  <button className="relative inline-flex items-center justify-center px-6 py-2.5 text-white font-medium bg-blue-600 rounded-full overflow-hidden hover:bg-blue-700 transition-all duration-300 shadow-lg hover:shadow-blue-200 hover:scale-105 active:scale-100 hover:shadow-xl">
-                    <span className="relative">Start free trial</span>
-                  </button>
-                </SignUpButton>
+                <button
+                  onClick={() => router.push("/sign-up")}
+                  className="relative inline-flex items-center justify-center px-6 py-2.5 text-white font-medium bg-blue-600 rounded-full overflow-hidden hover:bg-blue-700 transition-all duration-300 shadow-lg hover:shadow-blue-200 hover:scale-105 active:scale-100 hover:shadow-xl"
+                >
+                  <span className="relative">Start free trial</span>
+                </button>
               </div>
             </SignedOut>
           </div>
