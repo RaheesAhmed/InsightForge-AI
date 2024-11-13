@@ -113,13 +113,13 @@ export const useAuth = create<AuthState>()(
           window.localStorage.removeItem(name);
         },
       },
-      partialize: (state) => {
-        const { token, user } = state;
-        return {
-          token,
-          user,
-        } as const;
-      },
+      partialize: (state) => ({
+        token: state.token,
+        user: state.user,
+        setAuth: state.setAuth,
+        logout: state.logout,
+        checkAuth: state.checkAuth,
+      }),
     }
   )
 );
