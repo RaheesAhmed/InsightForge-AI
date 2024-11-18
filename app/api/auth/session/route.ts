@@ -1,28 +1,85 @@
-import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
-import { verifyJWT } from "@/lib/jwt"; // Make sure you have this utility
+import { cookies } from "next/headers";
+import { verifyJWT } from "@/lib/jwt";
+import { prisma } from "@/lib/prisma";
 
 export async function GET() {
   try {
-    const { userId } = auth();
+    // Get the token from cookies
+    const cookieStore = cookies();
+    const token = cookieStore.get("auth-token")?.value;
 
-    if (!userId) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (!token) {
+      return NextResponse.json(
+        { error: "No authentication token found" },
+        { status: 401 }
+      );
     }
 
-    // Generate your JWT token and get user data
-    const token = verifyJWT(userId);
-    const user = {
-      id: userId,
-      // Add other user properties as needed
+    // Verify the JWT token
+    const payload = await verifyJWT(token);
+    if (!payload || !payload.userId) {
+      return NextResponse.json(
+        { error: "Invalid or expired token" },
+        { status: 401 }
+      );
+    }
+
+    // Get fresh user data from database
+    const user = await prisma.user.findUnique({
+      where: { id: payload.userId },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        role: true,
+        subscription: {
+          select: {
+            plan: true,
+            documentsLimit: true,
+            questionsLimit: true,
+            questionsUsed: true,
+            validUntil: true,
+            status: true,
+          },
+        },
+      },
+    });
+
+    if (!user) {
+      return NextResponse.json(
+        { error: "User not found" },
+        { status: 401 }
+      );
+    }
+
+    // Format user data for response
+    const userData = {
+      id: user.id,
+      email: user.email,
+      name: user.name,
+      role: user.role,
+      subscription: user.subscription
+        ? {
+            plan: user.subscription.plan,
+            documentsPerMonth: user.subscription.documentsLimit,
+            questionsPerMonth: user.subscription.questionsLimit,
+            questionsUsed: user.subscription.questionsUsed,
+            validUntil: user.subscription.validUntil,
+          }
+        : null,
     };
 
-    return NextResponse.json({ token, user });
+    // Return the current session data
+    return NextResponse.json({
+      user: userData,
+      token,
+    });
   } catch (error) {
     console.error("Session error:", error);
     return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 }
+      { error: "Session validation failed" },
+      { status: 401 }
     );
   }
 }

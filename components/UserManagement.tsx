@@ -1,3 +1,5 @@
+"use client";
+
 import React, { useState, useEffect, useMemo } from "react";
 import {
   useTable,
@@ -11,11 +13,13 @@ import {
   ChevronDown,
   ChevronUp,
   Search,
-  Edit,
+  Eye,
   Shield,
   CheckCircle,
   XCircle,
   MoreVertical,
+  FileText,
+  MessageSquare,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -26,25 +30,51 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Badge } from "@/components/ui/badge";
+import { format } from "date-fns";
+
+interface User {
+  id: string;
+  email: string;
+  name: string | null;
+  imageUrl: string | null;
+  createdAt: string;
+  subscription: {
+    plan: string;
+    status: string;
+    validUntil: string;
+  } | null;
+  stats: {
+    questions: number;
+    documents: number;
+  };
+}
 
 const UserManagement = () => {
-  const [users, setUsers] = useState([]);
+  const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const [error, setError] = useState<string | null>(null);
   const [filterInput, setFilterInput] = useState("");
+  const [selectedUser, setSelectedUser] = useState<User | null>(null);
+  const [showUserDetails, setShowUserDetails] = useState(false);
 
   const fetchUsers = async () => {
     try {
-      const response = await fetch("/api/users");
+      const response = await fetch("/api/admin/users");
       if (!response.ok) {
         throw new Error("Failed to fetch users");
       }
-      const {
-        users: { data },
-      } = await response.json();
+      const data = await response.json();
       setUsers(data);
       setLoading(false);
-    } catch (err) {
+    } catch (err: any) {
       console.error("Error fetching users:", err);
       setError(err.message);
       setLoading(false);
@@ -55,10 +85,10 @@ const UserManagement = () => {
     fetchUsers();
   }, []);
 
-  const handleDelete = async (userId) => {
-    if (window.confirm("Are you sure you want to delete this user?")) {
+  const handleDelete = async (userId: string) => {
+    if (window.confirm("Are you sure you want to delete this user? This action cannot be undone.")) {
       try {
-        const response = await fetch("/api/users", {
+        const response = await fetch("/api/admin/users", {
           method: "DELETE",
           headers: {
             "Content-Type": "application/json",
@@ -70,28 +100,38 @@ const UserManagement = () => {
           throw new Error("Failed to delete user");
         }
 
-        fetchUsers();
-      } catch (err) {
+        await fetchUsers();
+      } catch (err: any) {
         console.error("Error deleting user:", err);
         setError(err.message);
       }
     }
   };
 
+  const handleViewDetails = (user: User) => {
+    setSelectedUser(user);
+    setShowUserDetails(true);
+  };
+
   const columns = useMemo(
     () => [
       {
         Header: "User",
-        accessor: (row) => ({
-          name: `${row.firstName} ${row.lastName}`,
-          email: row.emailAddresses[0]?.emailAddress || "N/A",
+        accessor: (row: User) => ({
+          name: row.name || "Anonymous",
+          email: row.email,
+          imageUrl: row.imageUrl,
         }),
-        Cell: ({ value }) => (
+        Cell: ({ value }: { value: { name: string; email: string; imageUrl: string | null } }) => (
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center">
-              <span className="text-slate-600 font-medium">
-                {value.name.charAt(0)}
-              </span>
+              {value.imageUrl ? (
+                <img src={value.imageUrl} alt={value.name} className="w-10 h-10 rounded-full" />
+              ) : (
+                <span className="text-slate-600 font-medium">
+                  {value.name.charAt(0)}
+                </span>
+              )}
             </div>
             <div>
               <div className="font-medium text-slate-800">{value.name}</div>
@@ -101,54 +141,49 @@ const UserManagement = () => {
         ),
       },
       {
-        Header: "Role",
-        accessor: "role",
-        Cell: ({ value }) => (
-          <span
-            className={`px-3 py-1 rounded-full text-sm font-medium
-                        ${
-                          value === "Admin"
-                            ? "bg-yellow-100 text-yellow-800"
-                            : value === "Manager"
-                            ? "bg-blue-100 text-blue-800"
-                            : "bg-slate-100 text-slate-800"
-                        }`}
-          >
-            {value || "User"}
-          </span>
-        ),
-      },
-      {
-        Header: "Status",
-        accessor: "status",
-        Cell: ({ value }) => (
-          <div className="flex items-center gap-2">
-            {value === "Active" ? (
-              <>
-                <CheckCircle className="w-4 h-4 text-green-500" />
-                <span className="text-green-700">Active</span>
-              </>
-            ) : (
-              <>
-                <XCircle className="w-4 h-4 text-red-500" />
-                <span className="text-red-700">Inactive</span>
-              </>
+        Header: "Subscription",
+        accessor: (row: User) => row.subscription,
+        Cell: ({ value }: { value: User["subscription"] }) => (
+          <div className="flex flex-col gap-1">
+            <Badge variant={value?.status === "ACTIVE" ? "success" : "secondary"}>
+              {value?.plan || "FREE"}
+            </Badge>
+            {value?.validUntil && (
+              <span className="text-xs text-slate-500">
+                Until {format(new Date(value.validUntil), "MMM d, yyyy")}
+              </span>
             )}
           </div>
         ),
       },
       {
-        Header: "Last Active",
-        accessor: "lastActiveDate",
-        Cell: ({ value }) => (
+        Header: "Usage",
+        accessor: (row: User) => row.stats,
+        Cell: ({ value }: { value: User["stats"] }) => (
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-1">
+              <MessageSquare className="w-4 h-4 text-slate-400" />
+              <span>{value.questions}</span>
+            </div>
+            <div className="flex items-center gap-1">
+              <FileText className="w-4 h-4 text-slate-400" />
+              <span>{value.documents}</span>
+            </div>
+          </div>
+        ),
+      },
+      {
+        Header: "Joined",
+        accessor: "createdAt",
+        Cell: ({ value }: { value: string }) => (
           <span className="text-slate-600">
-            {value ? new Date(value).toLocaleDateString() : "Never"}
+            {format(new Date(value), "MMM d, yyyy")}
           </span>
         ),
       },
       {
         Header: "Actions",
-        Cell: ({ row }) => (
+        Cell: ({ row }: { row: { original: User } }) => (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" className="h-8 w-8 p-0">
@@ -158,13 +193,12 @@ const UserManagement = () => {
             <DropdownMenuContent align="end" className="w-56">
               <DropdownMenuLabel>Actions</DropdownMenuLabel>
               <DropdownMenuSeparator />
-              <DropdownMenuItem className="flex items-center gap-2">
-                <Edit className="w-4 h-4" />
-                Edit User
-              </DropdownMenuItem>
-              <DropdownMenuItem className="flex items-center gap-2">
-                <Shield className="w-4 h-4" />
-                Change Role
+              <DropdownMenuItem 
+                className="flex items-center gap-2"
+                onClick={() => handleViewDetails(row.original)}
+              >
+                <Eye className="w-4 h-4" />
+                View Details
               </DropdownMenuItem>
               <DropdownMenuItem
                 className="flex items-center gap-2 text-red-600 focus:text-red-600"
@@ -199,163 +233,209 @@ const UserManagement = () => {
     page,
     prepareRow,
     setGlobalFilter,
-    canPreviousPage,
-    canNextPage,
-    pageOptions,
-    pageCount,
-    gotoPage,
     nextPage,
     previousPage,
-    setPageSize,
-    state: { pageIndex, pageSize, globalFilter },
+    canNextPage,
+    canPreviousPage,
+    pageOptions,
+    state: { pageIndex },
   } = tableInstance;
 
-  if (loading)
+  if (loading) {
     return (
-      <div className="flex justify-center items-center h-64 p-8">
-        <Loader2 className="animate-spin h-8 w-8 text-yellow-500" />
+      <div className="flex items-center justify-center min-h-[400px]">
+        <Loader2 className="w-8 h-8 animate-spin text-slate-400" />
       </div>
     );
+  }
 
-  if (error)
+  if (error) {
     return (
-      <div className="p-8">
-        <div
-          className="bg-red-50 border border-red-200 text-red-700 px-6 py-4 rounded-lg"
-          role="alert"
-        >
-          <strong className="font-medium">Error:</strong>
-          <span className="block sm:inline"> {error}</span>
-        </div>
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="text-red-500">Error: {error}</div>
       </div>
     );
+  }
 
   return (
-    <div className="p-8 space-y-8">
-      {/* Header Section */}
-      <div>
-        <h3 className="text-lg font-medium text-slate-800">User Management</h3>
-        <p className="text-sm text-slate-500 mt-1">
-          Manage your team members and their access levels
-        </p>
-      </div>
-
-      {/* Filters Section */}
-      <div className="flex justify-between items-center gap-4 bg-slate-50 p-6 rounded-lg border border-slate-200">
-        <div className="flex-1 relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <h2 className="text-3xl font-bold tracking-tight">Client Management</h2>
+        <div className="relative">
+          <Search className="absolute left-2 top-2.5 h-4 w-4 text-slate-400" />
           <input
             type="text"
+            placeholder="Search users..."
+            className="pl-8 pr-4 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-slate-400"
             value={filterInput}
             onChange={(e) => {
               setFilterInput(e.target.value);
               setGlobalFilter(e.target.value);
             }}
-            placeholder="Search users..."
-            className="pl-10 pr-4 py-2 w-full rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-yellow-500/20 focus:border-yellow-500"
           />
         </div>
-        <select
-          value={pageSize}
-          onChange={(e) => setPageSize(Number(e.target.value))}
-          className="px-4 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-yellow-500/20 focus:border-yellow-500"
-        >
-          {[10, 20, 30, 40, 50].map((size) => (
-            <option key={size} value={size}>
-              Show {size}
-            </option>
-          ))}
-        </select>
       </div>
 
-      {/* Table */}
-      <div className="bg-white rounded-lg border border-slate-200 overflow-hidden shadow-sm">
-        <div className="overflow-x-auto">
-          <table {...getTableProps()} className="w-full">
-            <thead className="bg-slate-50 border-b border-slate-200">
-              {headerGroups.map((headerGroup) => (
-                <tr {...headerGroup.getHeaderGroupProps()}>
-                  {headerGroup.headers.map((column) => (
-                    <th
-                      {...column.getHeaderProps(column.getSortByToggleProps())}
-                      className="px-6 py-4 text-left text-sm font-medium text-slate-600"
-                    >
-                      <div className="flex items-center gap-2">
-                        {column.render("Header")}
-                        {column.isSorted &&
-                          (column.isSortedDesc ? (
-                            <ChevronDown className="w-4 h-4" />
+      <div className="rounded-md border">
+        <table {...getTableProps()} className="w-full">
+          <thead>
+            {headerGroups.map((headerGroup) => (
+              <tr {...headerGroup.getHeaderGroupProps()}>
+                {headerGroup.headers.map((column) => (
+                  <th
+                    {...column.getHeaderProps(column.getSortByToggleProps())}
+                    className="border-b px-4 py-3 text-left"
+                  >
+                    <div className="flex items-center gap-2">
+                      {column.render("Header")}
+                      <span>
+                        {column.isSorted ? (
+                          column.isSortedDesc ? (
+                            <ChevronDown className="h-4 w-4" />
                           ) : (
-                            <ChevronUp className="w-4 h-4" />
-                          ))}
-                      </div>
-                    </th>
+                            <ChevronUp className="h-4 w-4" />
+                          )
+                        ) : null}
+                      </span>
+                    </div>
+                  </th>
+                ))}
+              </tr>
+            ))}
+          </thead>
+          <tbody {...getTableBodyProps()}>
+            {page.map((row) => {
+              prepareRow(row);
+              return (
+                <tr {...row.getRowProps()}>
+                  {row.cells.map((cell) => (
+                    <td {...cell.getCellProps()} className="border-b px-4 py-3">
+                      {cell.render("Cell")}
+                    </td>
                   ))}
                 </tr>
-              ))}
-            </thead>
-            <tbody {...getTableBodyProps()}>
-              {page.map((row) => {
-                prepareRow(row);
-                return (
-                  <tr
-                    {...row.getRowProps()}
-                    className="border-b border-slate-100 last:border-0 hover:bg-slate-50 transition-colors"
-                  >
-                    {row.cells.map((cell) => (
-                      <td {...cell.getCellProps()} className="px-6 py-4">
-                        {cell.render("Cell")}
-                      </td>
-                    ))}
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
 
-        {/* Pagination */}
-        <div className="flex items-center justify-between px-6 py-4 border-t border-slate-200">
-          <div className="text-sm text-slate-600">
-            Showing {pageIndex * pageSize + 1} to{" "}
-            {Math.min((pageIndex + 1) * pageSize, users.length)} of{" "}
-            {users.length} results
-          </div>
-          <div className="flex items-center gap-2">
-            <Button
-              onClick={() => previousPage()}
-              disabled={!canPreviousPage}
-              variant="outline"
-              size="sm"
-            >
-              Previous
-            </Button>
-            {Array.from(Array(pageCount).keys()).map((number) => (
-              <Button
-                key={number}
-                onClick={() => gotoPage(number)}
-                variant={pageIndex === number ? "default" : "outline"}
-                size="sm"
-                className={
-                  pageIndex === number
-                    ? "bg-yellow-500 hover:bg-yellow-400"
-                    : ""
-                }
-              >
-                {number + 1}
-              </Button>
-            ))}
-            <Button
-              onClick={() => nextPage()}
-              disabled={!canNextPage}
-              variant="outline"
-              size="sm"
-            >
-              Next
-            </Button>
-          </div>
+      <div className="flex items-center justify-between">
+        <div className="text-sm text-slate-500">
+          Page {pageIndex + 1} of {pageOptions.length}
+        </div>
+        <div className="space-x-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={previousPage}
+            disabled={!canPreviousPage}
+          >
+            Previous
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={nextPage}
+            disabled={!canNextPage}
+          >
+            Next
+          </Button>
         </div>
       </div>
+
+      <Dialog open={showUserDetails} onOpenChange={setShowUserDetails}>
+        <DialogContent className="sm:max-w-[600px]">
+          <DialogHeader>
+            <DialogTitle>User Details</DialogTitle>
+            <DialogDescription>
+              Comprehensive information about the user
+            </DialogDescription>
+          </DialogHeader>
+          {selectedUser && (
+            <div className="space-y-6">
+              <div className="flex items-center gap-4">
+                <div className="w-16 h-16 rounded-full bg-slate-100 flex items-center justify-center">
+                  {selectedUser.imageUrl ? (
+                    <img
+                      src={selectedUser.imageUrl}
+                      alt={selectedUser.name || ""}
+                      className="w-16 h-16 rounded-full"
+                    />
+                  ) : (
+                    <span className="text-2xl text-slate-600 font-medium">
+                      {(selectedUser.name || "A").charAt(0)}
+                    </span>
+                  )}
+                </div>
+                <div>
+                  <h3 className="text-xl font-semibold">
+                    {selectedUser.name || "Anonymous"}
+                  </h3>
+                  <p className="text-slate-500">{selectedUser.email}</p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <h4 className="font-medium text-slate-900">Account Details</h4>
+                  <div className="space-y-1">
+                    <p className="text-sm">
+                      <span className="text-slate-500">Joined:</span>{" "}
+                      {format(new Date(selectedUser.createdAt), "PPP")}
+                    </p>
+                    <p className="text-sm">
+                      <span className="text-slate-500">Subscription:</span>{" "}
+                      {selectedUser.subscription?.plan || "FREE"}
+                    </p>
+                    {selectedUser.subscription?.validUntil && (
+                      <p className="text-sm">
+                        <span className="text-slate-500">Valid Until:</span>{" "}
+                        {format(
+                          new Date(selectedUser.subscription.validUntil),
+                          "PPP"
+                        )}
+                      </p>
+                    )}
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <h4 className="font-medium text-slate-900">Usage Statistics</h4>
+                  <div className="space-y-1">
+                    <p className="text-sm">
+                      <span className="text-slate-500">Questions Asked:</span>{" "}
+                      {selectedUser.stats.questions}
+                    </p>
+                    <p className="text-sm">
+                      <span className="text-slate-500">Documents Processed:</span>{" "}
+                      {selectedUser.stats.documents}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex justify-end space-x-2">
+                <Button
+                  variant="destructive"
+                  onClick={() => {
+                    handleDelete(selectedUser.id);
+                    setShowUserDetails(false);
+                  }}
+                >
+                  Delete User
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => setShowUserDetails(false)}
+                >
+                  Close
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

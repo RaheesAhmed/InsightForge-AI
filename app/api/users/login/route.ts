@@ -52,13 +52,18 @@ export async function POST(req: Request) {
       );
     }
 
-    const token = signJWT({
+    // Create the token payload
+    const tokenPayload = {
       userId: user.id,
       email: user.email,
       name: user.name || undefined,
       role: user.role,
-    });
+    };
 
+    // Generate JWT token with proper expiration
+    const token = await signJWT(tokenPayload);
+
+    // Prepare user data for response
     const userData = {
       id: user.id,
       email: user.email,
@@ -76,9 +81,8 @@ export async function POST(req: Request) {
     };
 
     // Set the auth token as an HTTP-only cookie
-    cookies().set({
-      name: "auth-token",
-      value: token,
+    const cookieStore = cookies();
+    cookieStore.set("auth-token", token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
       sameSite: "lax",
@@ -86,6 +90,7 @@ export async function POST(req: Request) {
       maxAge: 60 * 60 * 24, // 24 hours
     });
 
+    // Return success response with user data and token
     return NextResponse.json({
       user: userData,
       token,

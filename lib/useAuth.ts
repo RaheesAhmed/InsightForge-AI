@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { jwtDecode } from "jwt-decode";
+import { isTokenExpired } from "./jwt";
 
 interface User {
   id: string;
@@ -22,6 +23,7 @@ interface AuthState {
   setAuth: (token: string, user: User) => void;
   logout: () => void;
   checkAuth: () => boolean;
+  updateAuthFromSession: () => Promise<void>;
 }
 
 export const useAuth = create<AuthState>()(
@@ -30,47 +32,32 @@ export const useAuth = create<AuthState>()(
       token: null,
       user: null,
       setAuth: (token: string, user: User) => {
+        if (!token || isTokenExpired(token)) {
+          console.error("Invalid or expired token provided to setAuth");
+          get().logout();
+          return;
+        }
+
         set({ token, user });
 
         if (typeof window !== "undefined") {
           window.localStorage.setItem("auth-token", token);
-
-          const authValue = `Bearer ${token}`;
-          if (window.fetch) {
-            const originalFetch = window.fetch;
-            window.fetch = function (
-              input: RequestInfo | URL,
-              init?: RequestInit
-            ) {
-              if (!init) {
-                init = {};
-              }
-              if (!init.headers) {
-                init.headers = {};
-              }
-
-              const url =
-                input instanceof Request ? input.url : input.toString();
-              const isSameOrigin =
-                url.startsWith(window.location.origin) || url.startsWith("/");
-
-              if (
-                isSameOrigin &&
-                !init.headers.hasOwnProperty("Authorization")
-              ) {
-                (init.headers as Record<string, string>)["Authorization"] =
-                  authValue;
-              }
-
-              return originalFetch(input, init);
-            };
-          }
         }
       },
-      logout: () => {
+      logout: async () => {
+        try {
+          await fetch("/api/auth/logout", { 
+            method: "POST",
+            credentials: "include" 
+          });
+        } catch (error) {
+          console.error("Error during logout:", error);
+        }
         set({ token: null, user: null });
         if (typeof window !== "undefined") {
           window.localStorage.removeItem("auth-token");
+          // Redirect to home page
+          window.location.href = "/";
         }
       },
       checkAuth: () => {
@@ -78,17 +65,46 @@ export const useAuth = create<AuthState>()(
         if (!state.token) return false;
 
         try {
-          const decoded = jwtDecode(state.token);
-          const currentTime = Date.now() / 1000;
-
-          if (decoded.exp && decoded.exp < currentTime) {
+          if (isTokenExpired(state.token)) {
             get().logout();
             return false;
           }
           return true;
         } catch (error) {
+          console.error("Error checking auth:", error);
           get().logout();
           return false;
+        }
+      },
+      updateAuthFromSession: async () => {
+        try {
+          const response = await fetch("/api/auth/session", {
+            credentials: "include"
+          });
+          
+          if (!response.ok) {
+            if (response.status === 401) {
+              // Clear invalid auth state
+              set({ token: null, user: null });
+            }
+            return;
+          }
+
+          const data = await response.json();
+          
+          if (data.token && data.user) {
+            if (!isTokenExpired(data.token)) {
+              set({ token: data.token, user: data.user });
+            } else {
+              console.error("Received expired token from session");
+              set({ token: null, user: null });
+            }
+          } else {
+            set({ token: null, user: null });
+          }
+        } catch (error) {
+          console.error("Error updating auth from session:", error);
+          set({ token: null, user: null });
         }
       },
     }),
@@ -99,26 +115,26 @@ export const useAuth = create<AuthState>()(
           if (typeof window === "undefined") return null;
           try {
             const str = window.localStorage.getItem(name);
-            return str ? JSON.parse(str) : null;
+            if (!str) return null;
+            return JSON.parse(str);
           } catch {
             return null;
           }
         },
         setItem: (name, value) => {
-          if (typeof window === "undefined") return;
-          window.localStorage.setItem(name, JSON.stringify(value));
+          if (typeof window !== "undefined") {
+            window.localStorage.setItem(name, JSON.stringify(value));
+          }
         },
         removeItem: (name) => {
-          if (typeof window === "undefined") return;
-          window.localStorage.removeItem(name);
+          if (typeof window !== "undefined") {
+            window.localStorage.removeItem(name);
+          }
         },
       },
       partialize: (state) => ({
         token: state.token,
         user: state.user,
-        setAuth: state.setAuth,
-        logout: state.logout,
-        checkAuth: state.checkAuth,
       }),
     }
   )
@@ -127,7 +143,8 @@ export const useAuth = create<AuthState>()(
 // Helper function to get auth token with validation
 export const getAuthToken = () => {
   const { token, checkAuth } = useAuth.getState();
-  return checkAuth() ? token : null;
+  if (!token || !checkAuth()) return null;
+  return token;
 };
 
 // Helper function to check if user is authenticated
@@ -139,32 +156,35 @@ export const isAuthenticated = () => {
 // Helper function to get current user
 export const getCurrentUser = () => {
   const { user, checkAuth } = useAuth.getState();
-  return checkAuth() ? user : null;
+  if (!checkAuth()) return null;
+  return user;
 };
 
 // Custom fetch with auth header
 export const authenticatedFetch = async (
   url: string,
   options: RequestInit = {}
-) => {
+): Promise<Response> => {
   const token = getAuthToken();
+  
+  if (!token) {
+    throw new Error("No authentication token available");
+  }
 
   const headers = {
     ...options.headers,
-    ...(token ? { Authorization: `Bearer ${token}` } : {}),
-    "Content-Type": "application/json",
+    Authorization: `Bearer ${token}`,
   };
 
   const response = await fetch(url, {
     ...options,
+    credentials: "include",
     headers,
   });
 
   if (response.status === 401) {
-    // Token expired or invalid
     useAuth.getState().logout();
-    window.location.href = "/sign-in";
-    throw new Error("Authentication required");
+    throw new Error("Authentication failed");
   }
 
   return response;

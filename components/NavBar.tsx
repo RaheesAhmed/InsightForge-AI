@@ -8,25 +8,22 @@ import { useAuth } from "@/lib/useAuth";
 
 const NavBar = () => {
   const router = useRouter();
-  const { user, checkAuth } = useAuth();
+  const { user, updateAuthFromSession } = useAuth();
 
   useEffect(() => {
-    const updateAuthState = async () => {
-      try {
-        const response = await fetch("/api/auth/session");
-        const data = await response.json();
-        if (data.token && data.user) {
-          useAuth.getState().setAuth(data.token, data.user);
-        }
-      } catch (error) {
-        console.error("Error updating auth state:", error);
-      }
+    // Check auth state on mount and every 5 minutes
+    const checkAuth = async () => {
+      await updateAuthFromSession();
     };
 
-    if (checkAuth()) {
-      updateAuthState();
-    }
-  }, [checkAuth]);
+    // Initial check
+    checkAuth();
+
+    // Set up periodic checks
+    const interval = setInterval(checkAuth, 5 * 60 * 1000);
+
+    return () => clearInterval(interval);
+  }, [updateAuthFromSession]);
 
   return (
     <nav className="w-full bg-white border-b border-gray-200 shadow-sm sticky top-0 z-50">
@@ -65,7 +62,7 @@ const NavBar = () => {
           <div className="flex items-center">
             {user ? (
               <div className="flex items-center space-x-4">
-                <span className="text-sm text-gray-700">{user.name}</span>
+                <span className="text-sm text-gray-700">{user.name || user.email}</span>
                 <button
                   onClick={() => useAuth.getState().logout()}
                   className="text-sm text-gray-600 hover:text-blue-600"
@@ -108,10 +105,10 @@ const NavLink = ({
 }) => (
   <Link
     href={href}
-    className="inline-flex items-center px-1 pt-1 text-sm font-medium text-gray-600 hover:text-blue-600 transition-colors duration-300 border-b-2 border-transparent hover:border-blue-600"
+    className="inline-flex items-center px-1 pt-1 text-sm font-medium text-gray-500 hover:text-blue-600"
   >
-    {icon}
-    <span className="ml-2">{text}</span>
+    <span className="mr-2">{icon}</span>
+    {text}
   </Link>
 );
 

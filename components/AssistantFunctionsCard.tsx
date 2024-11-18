@@ -67,9 +67,6 @@ const AssistantFunctionsCard: React.FC<AssistantFunctionsCardProps> = ({
   return (
     <div className="w-full bg-white p-4">
       <div className="max-w-4xl mx-auto">
-        <h2 className="text-lg font-semibold text-gray-900 mb-4 text-center">
-          How can I help you with your business today?
-        </h2>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
           {data.map((item, index) => (
             <div
