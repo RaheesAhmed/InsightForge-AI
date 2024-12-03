@@ -108,18 +108,18 @@ const Sidebar: React.FC<SidebarProps> = ({
       <div
         data-sidebar
         className={cn(
-          "fixed md:relative z-20 flex h-full flex-col bg-gray-50 border-r border-gray-200 transition-all duration-300",
+          "fixed md:relative z-20 flex h-full flex-col bg-[#0A0F1E]/50 backdrop-blur-xl border-r border-white/10 transition-all duration-300",
           "transform -translate-x-full md:translate-x-0",
           isCollapsed ? "w-[60px]" : "w-[280px]"
         )}
       >
         {/* Logo Section */}
-        <div className="flex items-center p-3 sm:p-4 border-b border-gray-200 bg-white justify-between">
+        <div className="flex items-center p-3 sm:p-4 border-b border-white/10 bg-white/5 backdrop-blur-sm justify-between">
           <div className="flex items-center space-x-2">
-            <Brain className="h-8 w-8 text-indigo-600" />
+            <Brain className="h-8 w-8 text-blue-400" />
             {!isCollapsed && (
               <span className="text-xl font-bold text-white">
-                <span className="text-indigo-600 font-bold text-2xl">
+                <span className="bg-gradient-to-r from-blue-400 to-indigo-400 bg-clip-text text-transparent font-bold text-2xl">
                   Virtu HelpX
                 </span>
               </span>
@@ -128,25 +128,25 @@ const Sidebar: React.FC<SidebarProps> = ({
           <Button
             variant="ghost"
             size="sm"
-            className="p-0 h-8 w-8  flex items-right justify-right "
+            className="p-0 h-8 w-8 flex items-right justify-right hover:bg-white/10"
             onClick={() => setIsCollapsed(!isCollapsed)}
           >
             {isCollapsed ? (
-              <ChevronRight className="h-8 w-8 ml-4 font-bold rounded bg-indigo-600 text-white" />
+              <ChevronRight className="h-8 w-8 ml-4 font-bold rounded bg-gradient-to-r from-blue-500 to-indigo-500 text-white" />
             ) : (
-              <ChevronLeft className="h-4 w-4" />
+              <ChevronLeft className="h-4 w-4 text-gray-300" />
             )}
           </Button>
         </div>
 
         {/* Add User Info Section */}
         {!isCollapsed && (
-          <div className="px-4 py-2 border-b border-gray-200">
-            <div className="text-sm font-medium text-gray-900">
+          <div className="px-4 py-2 border-b border-white/10 bg-white/5">
+            <div className="text-sm font-medium text-white">
               {userDisplayName}
             </div>
             {user?.email && (
-              <div className="text-xs text-gray-500 truncate">{user.email}</div>
+              <div className="text-xs text-gray-400 truncate">{user.email}</div>
             )}
           </div>
         )}
@@ -156,9 +156,9 @@ const Sidebar: React.FC<SidebarProps> = ({
           <Tooltip>
             <TooltipTrigger asChild>
               <Button
-                onClick={handleNewChat} // Use the new handler
+                onClick={handleNewChat}
                 className={cn(
-                  "justify-start gap-2 bg-indigo-600 text-white hover:bg-indigo-700 transition-all duration-200",
+                  "justify-start gap-2 bg-gradient-to-r from-blue-500 to-indigo-500 text-white hover:opacity-90 transition-all duration-200",
                   isCollapsed ? "w-10 px-2" : "w-full"
                 )}
               >
@@ -177,7 +177,7 @@ const Sidebar: React.FC<SidebarProps> = ({
           {!isCollapsed &&
             Object.entries(groupedSessions).map(([date, dateSessions]) => (
               <div key={date}>
-                <div className="px-3 py-2 text-xs text-gray-500 font-medium">
+                <div className="px-3 py-2 text-xs text-gray-400 font-medium">
                   {date}
                 </div>
                 {dateSessions.map((session, index) => {
@@ -192,8 +192,8 @@ const Sidebar: React.FC<SidebarProps> = ({
                       className={cn(
                         "mb-1 w-full justify-start gap-2 rounded-lg py-2 text-left transition-all duration-200",
                         actualIndex === activeSessionIndex
-                          ? "bg-white text-indigo-600 border border-gray-200 shadow-sm"
-                          : "text-gray-500 hover:bg-white hover:text-gray-600"
+                          ? "bg-white/10 text-blue-400 border border-white/10 backdrop-blur-sm"
+                          : "text-gray-300 hover:bg-white/5 hover:text-white"
                       )}
                     >
                       <MessageSquare className="h-4 w-4 shrink-0" />
@@ -215,8 +215,8 @@ const Sidebar: React.FC<SidebarProps> = ({
                     className={cn(
                       "mb-1 w-10 p-0 justify-center rounded-lg transition-all duration-200",
                       index === activeSessionIndex
-                        ? "bg-white text-indigo-600 border border-gray-200 shadow-sm"
-                        : "text-gray-500 hover:bg-white hover:text-gray-600"
+                        ? "bg-white/10 text-blue-400 border border-white/10 backdrop-blur-sm"
+                        : "text-gray-300 hover:bg-white/5 hover:text-white"
                     )}
                   >
                     <MessageSquare className="h-4 w-4" />
@@ -230,7 +230,7 @@ const Sidebar: React.FC<SidebarProps> = ({
         </ScrollArea>
 
         {/* Bottom Actions */}
-        <Separator className="bg-gray-200" />
+        <Separator className="bg-white/10" />
         <div className="p-4 space-y-2">
           <Tooltip>
             <TooltipTrigger asChild>
@@ -238,7 +238,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                 onClick={onClearAllChats}
                 variant="ghost"
                 className={cn(
-                  "justify-start gap-2 text-gray-500 hover:bg-white hover:text-gray-600 transition-all duration-200",
+                  "justify-start gap-2 text-gray-300 hover:bg-white/5 hover:text-white transition-all duration-200",
                   isCollapsed ? "w-10 px-2" : "w-full"
                 )}
               >
@@ -254,7 +254,7 @@ const Sidebar: React.FC<SidebarProps> = ({
               <Button
                 variant="ghost"
                 className={cn(
-                  "justify-start gap-2 text-gray-500 hover:bg-white hover:text-gray-600 transition-all duration-200",
+                  "justify-start gap-2 text-gray-300 hover:bg-white/5 hover:text-white transition-all duration-200",
                   isCollapsed ? "w-10 px-2" : "w-full"
                 )}
                 onClick={() => setIsSettingsOpen(true)}

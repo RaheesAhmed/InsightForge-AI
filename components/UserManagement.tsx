@@ -1,27 +1,27 @@
-"use client";
-
-import React, { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo } from "react"
+import { format } from "date-fns"
+import { useTable, useSortBy, usePagination, useGlobalFilter } from "react-table"
+import { Search, ChevronDown, ChevronUp, Users, MessageSquare, FileText, Eye, Trash2, Loader2, MoreVertical } from "lucide-react"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
 import {
-  useTable,
-  useSortBy,
-  usePagination,
-  useGlobalFilter,
-} from "react-table";
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
 import {
-  Trash2,
-  Loader2,
-  ChevronDown,
-  ChevronUp,
-  Search,
-  Eye,
-  Shield,
-  CheckCircle,
-  XCircle,
-  MoreVertical,
-  FileText,
-  MessageSquare,
-} from "lucide-react";
-import { Button } from "@/components/ui/button";
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { Badge } from "@/components/ui/badge"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -29,16 +29,9 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import { Badge } from "@/components/ui/badge";
-import { format } from "date-fns";
+} from "@/components/ui/dropdown-menu"
+import { Skeleton } from "@/components/ui/skeleton"
+import { toast } from "@/hooks/use-toast"
 
 interface User {
   id: string;
@@ -55,6 +48,29 @@ interface User {
     questions: number;
     documents: number;
   };
+}
+
+const UserTableSkeleton = () => {
+  return (
+    <div className="space-y-4 animate-pulse">
+      <div className="flex items-center justify-between">
+        <Skeleton className="h-10 w-[250px]" />
+        <Skeleton className="h-10 w-[200px]" />
+      </div>
+      <div className="rounded-lg border">
+        <div className="h-12 border-b px-4 bg-gray-50/50" />
+        {[1, 2, 3, 4, 5].map((i) => (
+          <div key={i} className="flex items-center space-x-4 px-4 py-3 border-b last:border-0">
+            <Skeleton className="h-10 w-10 rounded-full" />
+            <Skeleton className="h-4 w-[250px]" />
+            <Skeleton className="h-4 w-[150px]" />
+            <Skeleton className="h-4 w-[100px]" />
+            <Skeleton className="h-4 w-[100px]" />
+          </div>
+        ))}
+      </div>
+    </div>
+  )
 }
 
 const UserManagement = () => {
@@ -113,331 +129,199 @@ const UserManagement = () => {
     setShowUserDetails(true);
   };
 
-  const columns = useMemo(
-    () => [
-      {
-        Header: "User",
-        accessor: (row: User) => ({
-          name: row.name || "Anonymous",
-          email: row.email,
-          imageUrl: row.imageUrl,
-        }),
-        Cell: ({ value }: { value: { name: string; email: string; imageUrl: string | null } }) => (
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center">
-              {value.imageUrl ? (
-                <img src={value.imageUrl} alt={value.name} className="w-10 h-10 rounded-full" />
-              ) : (
-                <span className="text-slate-600 font-medium">
-                  {value.name.charAt(0)}
-                </span>
-              )}
-            </div>
-            <div>
-              <div className="font-medium text-slate-800">{value.name}</div>
-              <div className="text-sm text-slate-500">{value.email}</div>
-            </div>
-          </div>
-        ),
-      },
-      {
-        Header: "Subscription",
-        accessor: (row: User) => row.subscription,
-        Cell: ({ value }: { value: User["subscription"] }) => (
-          <div className="flex flex-col gap-1">
-            <Badge variant={value?.status === "ACTIVE" ? "success" : "secondary"}>
-              {value?.plan || "FREE"}
-            </Badge>
-            {value?.validUntil && (
-              <span className="text-xs text-slate-500">
-                Until {format(new Date(value.validUntil), "MMM d, yyyy")}
-              </span>
-            )}
-          </div>
-        ),
-      },
-      {
-        Header: "Usage",
-        accessor: (row: User) => row.stats,
-        Cell: ({ value }: { value: User["stats"] }) => (
-          <div className="flex items-center gap-4">
-            <div className="flex items-center gap-1">
-              <MessageSquare className="w-4 h-4 text-slate-400" />
-              <span>{value.questions}</span>
-            </div>
-            <div className="flex items-center gap-1">
-              <FileText className="w-4 h-4 text-slate-400" />
-              <span>{value.documents}</span>
-            </div>
-          </div>
-        ),
-      },
-      {
-        Header: "Joined",
-        accessor: "createdAt",
-        Cell: ({ value }: { value: string }) => (
-          <span className="text-slate-600">
-            {format(new Date(value), "MMM d, yyyy")}
-          </span>
-        ),
-      },
-      {
-        Header: "Actions",
-        Cell: ({ row }: { row: { original: User } }) => (
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" className="h-8 w-8 p-0">
-                <MoreVertical className="h-4 w-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-56">
-              <DropdownMenuLabel>Actions</DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem 
-                className="flex items-center gap-2"
-                onClick={() => handleViewDetails(row.original)}
-              >
-                <Eye className="w-4 h-4" />
-                View Details
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                className="flex items-center gap-2 text-red-600 focus:text-red-600"
-                onClick={() => handleDelete(row.original.id)}
-              >
-                <Trash2 className="w-4 h-4" />
-                Delete User
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        ),
-      },
-    ],
-    []
-  );
-
-  const tableInstance = useTable(
-    {
-      columns,
-      data: users,
-      initialState: { pageIndex: 0, pageSize: 10 },
-    },
-    useGlobalFilter,
-    useSortBy,
-    usePagination
-  );
-
-  const {
-    getTableProps,
-    getTableBodyProps,
-    headerGroups,
-    page,
-    prepareRow,
-    setGlobalFilter,
-    nextPage,
-    previousPage,
-    canNextPage,
-    canPreviousPage,
-    pageOptions,
-    state: { pageIndex },
-  } = tableInstance;
+  const showToast = (message: string, type: 'success' | 'error' = 'success') => {
+    toast({
+      title: type === 'success' ? 'Success' : 'Error',
+      description: message,
+      variant: type === 'success' ? 'default' : 'destructive',
+    })
+  }
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <Loader2 className="w-8 h-8 animate-spin text-slate-400" />
+      <div className="p-6 space-y-6">
+        <div className="flex items-center justify-between">
+          <h2 className="text-3xl font-bold tracking-tight">User Management</h2>
+        </div>
+        <UserTableSkeleton />
       </div>
-    );
+    )
   }
 
   if (error) {
     return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <div className="text-red-500">Error: {error}</div>
+      <div className="p-6">
+        <Card className="border-destructive">
+          <CardHeader>
+            <CardTitle className="text-destructive">Error Loading Users</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p>{error}</p>
+            <Button 
+              onClick={() => {
+                setError(null);
+                setLoading(true);
+                fetchUsers();
+              }}
+              className="mt-4"
+            >
+              Retry
+            </Button>
+          </CardContent>
+        </Card>
       </div>
-    );
+    )
   }
 
   return (
-    <div className="space-y-4">
+    <div className="p-6 space-y-6 animate-in fade-in slide-in-from-bottom-5 duration-500">
       <div className="flex items-center justify-between">
-        <h2 className="text-3xl font-bold tracking-tight">Client Management</h2>
-        <div className="relative">
-          <Search className="absolute left-2 top-2.5 h-4 w-4 text-slate-400" />
-          <input
-            type="text"
-            placeholder="Search users..."
-            className="pl-8 pr-4 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-slate-400"
-            value={filterInput}
-            onChange={(e) => {
-              setFilterInput(e.target.value);
-              setGlobalFilter(e.target.value);
-            }}
-          />
+        <h2 className="text-3xl font-bold tracking-tight">User Management</h2>
+        <div className="flex items-center space-x-4">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 h-4 w-4" />
+            <Input
+              placeholder="Search users..."
+              value={filterInput}
+              onChange={(e) => setFilterInput(e.target.value)}
+              className="pl-10 w-[300px]"
+            />
+          </div>
+          <Button variant="outline">
+            Export Users
+          </Button>
         </div>
       </div>
 
-      <div className="rounded-md border">
-        <table {...getTableProps()} className="w-full">
-          <thead>
-            {headerGroups.map((headerGroup) => (
-              <tr {...headerGroup.getHeaderGroupProps()}>
-                {headerGroup.headers.map((column) => (
-                  <th
-                    {...column.getHeaderProps(column.getSortByToggleProps())}
-                    className="border-b px-4 py-3 text-left"
-                  >
-                    <div className="flex items-center gap-2">
-                      {column.render("Header")}
-                      <span>
-                        {column.isSorted ? (
-                          column.isSortedDesc ? (
-                            <ChevronDown className="h-4 w-4" />
-                          ) : (
-                            <ChevronUp className="h-4 w-4" />
-                          )
-                        ) : null}
-                      </span>
+      <Card>
+        <Table>
+          <TableHeader>
+            <TableRow className="bg-gray-50/50">
+              <TableHead className="w-[300px]">User</TableHead>
+              <TableHead>Plan</TableHead>
+              <TableHead>Questions</TableHead>
+              <TableHead>Documents</TableHead>
+              <TableHead>Joined</TableHead>
+              <TableHead className="text-right">Actions</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {users.map((user) => (
+              <TableRow key={user.id} className="group hover:bg-gray-50/50 transition-colors">
+                <TableCell>
+                  <div className="flex items-center space-x-3">
+                    <Avatar>
+                      <AvatarImage src={user.imageUrl || undefined} />
+                      <AvatarFallback>{user.name?.[0] || user.email[0].toUpperCase()}</AvatarFallback>
+                    </Avatar>
+                    <div>
+                      <div className="font-medium">{user.name || 'Unnamed User'}</div>
+                      <div className="text-sm text-gray-500">{user.email}</div>
                     </div>
-                  </th>
-                ))}
-              </tr>
+                  </div>
+                </TableCell>
+                <TableCell>
+                  <Badge variant={user.subscription?.status === 'active' ? 'default' : 'secondary'}>
+                    {user.subscription?.plan || 'Free'}
+                  </Badge>
+                </TableCell>
+                <TableCell>{user.stats.questions}</TableCell>
+                <TableCell>{user.stats.documents}</TableCell>
+                <TableCell>{format(new Date(user.createdAt), 'MMM d, yyyy')}</TableCell>
+                <TableCell className="text-right">
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" size="icon" className="opacity-0 group-hover:opacity-100 transition-opacity">
+                        <MoreVertical className="h-4 w-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                      <DropdownMenuItem onClick={() => {
+                        setSelectedUser(user);
+                        setShowUserDetails(true);
+                      }}>
+                        <Eye className="h-4 w-4 mr-2" />
+                        View Details
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem
+                        className="text-red-600"
+                        onClick={() => handleDelete(user.id)}
+                      >
+                        <Trash2 className="h-4 w-4 mr-2" />
+                        Delete User
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </TableCell>
+              </TableRow>
             ))}
-          </thead>
-          <tbody {...getTableBodyProps()}>
-            {page.map((row) => {
-              prepareRow(row);
-              return (
-                <tr {...row.getRowProps()}>
-                  {row.cells.map((cell) => (
-                    <td {...cell.getCellProps()} className="border-b px-4 py-3">
-                      {cell.render("Cell")}
-                    </td>
-                  ))}
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
-
-      <div className="flex items-center justify-between">
-        <div className="text-sm text-slate-500">
-          Page {pageIndex + 1} of {pageOptions.length}
-        </div>
-        <div className="space-x-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={previousPage}
-            disabled={!canPreviousPage}
-          >
-            Previous
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={nextPage}
-            disabled={!canNextPage}
-          >
-            Next
-          </Button>
-        </div>
-      </div>
+          </TableBody>
+        </Table>
+      </Card>
 
       <Dialog open={showUserDetails} onOpenChange={setShowUserDetails}>
         <DialogContent className="sm:max-w-[600px]">
           <DialogHeader>
             <DialogTitle>User Details</DialogTitle>
             <DialogDescription>
-              Comprehensive information about the user
+              Detailed information about the selected user.
             </DialogDescription>
           </DialogHeader>
           {selectedUser && (
             <div className="space-y-6">
-              <div className="flex items-center gap-4">
-                <div className="w-16 h-16 rounded-full bg-slate-100 flex items-center justify-center">
-                  {selectedUser.imageUrl ? (
-                    <img
-                      src={selectedUser.imageUrl}
-                      alt={selectedUser.name || ""}
-                      className="w-16 h-16 rounded-full"
-                    />
-                  ) : (
-                    <span className="text-2xl text-slate-600 font-medium">
-                      {(selectedUser.name || "A").charAt(0)}
-                    </span>
-                  )}
-                </div>
+              <div className="flex items-center space-x-4">
+                <Avatar className="h-16 w-16">
+                  <AvatarImage src={selectedUser.imageUrl || undefined} />
+                  <AvatarFallback>{selectedUser.name?.[0] || selectedUser.email[0].toUpperCase()}</AvatarFallback>
+                </Avatar>
                 <div>
-                  <h3 className="text-xl font-semibold">
-                    {selectedUser.name || "Anonymous"}
-                  </h3>
-                  <p className="text-slate-500">{selectedUser.email}</p>
+                  <h3 className="text-lg font-medium">{selectedUser.name || 'Unnamed User'}</h3>
+                  <p className="text-gray-500">{selectedUser.email}</p>
                 </div>
               </div>
-
+              
               <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <h4 className="font-medium text-slate-900">Account Details</h4>
-                  <div className="space-y-1">
-                    <p className="text-sm">
-                      <span className="text-slate-500">Joined:</span>{" "}
-                      {format(new Date(selectedUser.createdAt), "PPP")}
-                    </p>
-                    <p className="text-sm">
-                      <span className="text-slate-500">Subscription:</span>{" "}
-                      {selectedUser.subscription?.plan || "FREE"}
-                    </p>
-                    {selectedUser.subscription?.validUntil && (
-                      <p className="text-sm">
-                        <span className="text-slate-500">Valid Until:</span>{" "}
-                        {format(
-                          new Date(selectedUser.subscription.validUntil),
-                          "PPP"
-                        )}
-                      </p>
-                    )}
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <h4 className="font-medium text-slate-900">Usage Statistics</h4>
-                  <div className="space-y-1">
-                    <p className="text-sm">
-                      <span className="text-slate-500">Questions Asked:</span>{" "}
-                      {selectedUser.stats.questions}
-                    </p>
-                    <p className="text-sm">
-                      <span className="text-slate-500">Documents Processed:</span>{" "}
-                      {selectedUser.stats.documents}
-                    </p>
-                  </div>
-                </div>
+                <Card>
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-sm font-medium">Questions</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold">{selectedUser.stats.questions}</div>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-sm font-medium">Documents</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold">{selectedUser.stats.documents}</div>
+                  </CardContent>
+                </Card>
               </div>
 
-              <div className="flex justify-end space-x-2">
-                <Button
-                  variant="destructive"
-                  onClick={() => {
-                    handleDelete(selectedUser.id);
-                    setShowUserDetails(false);
-                  }}
-                >
-                  Delete User
-                </Button>
-                <Button
-                  variant="outline"
-                  onClick={() => setShowUserDetails(false)}
-                >
-                  Close
-                </Button>
+              <div>
+                <h4 className="text-sm font-medium mb-2">Subscription Details</h4>
+                <div className="bg-gray-50 p-4 rounded-lg">
+                  <div className="flex justify-between mb-2">
+                    <span className="text-gray-500">Plan</span>
+                    <span className="font-medium">{selectedUser.subscription?.plan || 'Free'}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-500">Status</span>
+                    <Badge variant={selectedUser.subscription?.status === 'active' ? 'default' : 'secondary'}>
+                      {selectedUser.subscription?.status || 'inactive'}
+                    </Badge>
+                  </div>
+                </div>
               </div>
             </div>
           )}
         </DialogContent>
       </Dialog>
     </div>
-  );
-};
+  )
+}
 
 export default UserManagement;

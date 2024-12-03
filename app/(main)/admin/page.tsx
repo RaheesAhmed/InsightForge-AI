@@ -15,7 +15,7 @@ import {
   Search,
 } from "lucide-react";
 import { SettingsModel } from "../../../components/SettingsModel";
-import EditCard from "../../../components/EditCard";
+import EditAssistantCard from "../../../components/EditAssistantCard";
 import FileViewer from "../../../components/file-viewer";
 import DashboardOverview from "@/components/DashboardOverview";
 import UserManagement from "@/components/UserManagement";
@@ -204,7 +204,7 @@ function Admin({ sidebarItems }: AdminProps) {
         return showSettings ? (
           <SettingsModel />
         ) : (
-          <EditCard onClick={toggleSettings} />
+          <EditAssistantCard onClick={toggleSettings} />
         );
       default:
         return <div className="text-slate-800">Content for {activeTab}</div>;
@@ -226,19 +226,7 @@ function Admin({ sidebarItems }: AdminProps) {
           </div>
         </div>
 
-        {/* User Profile */}
-        <div className="p-4 border-b border-blue-200">
-          <button className="w-full flex items-center gap-3 p-3 rounded-lg hover:bg-blue-200/50 transition-colors">
-            <div className="w-4 h-4 p-4 rounded-full bg-blue-600 flex items-center justify-center text-white font-bold">
-              A
-            </div>
-            <div className="flex-1 text-left">
-              <div className="font-medium text-gray-800">Admin User</div>
-              <div className="text-sm text-gray-600">admin@example.com</div>
-            </div>
-            <ChevronDown className="w-4 h-4 text-gray-600" />
-          </button>
-        </div>
+        
 
         {/* Navigation */}
         <nav className="p-4">

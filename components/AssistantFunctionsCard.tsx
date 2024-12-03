@@ -65,26 +65,28 @@ const AssistantFunctionsCard: React.FC<AssistantFunctionsCardProps> = ({
   onCardClick,
 }) => {
   return (
-    <div className="w-full bg-white p-4">
+    <div className="w-full bg-transparent p-4">
       <div className="max-w-4xl mx-auto">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
           {data.map((item, index) => (
             <div
               key={index}
-              className="bg-gradient-to-br from-blue-50 to-white border border-blue-100 rounded-lg p-4 cursor-pointer hover:shadow-md transition-all duration-200 flex flex-col gap-2"
+              className="bg-gradient-to-br from-white/5 to-white/10 backdrop-blur-sm border border-white/10 rounded-lg p-4 cursor-pointer hover:bg-white/15 transition-all duration-200 flex flex-col gap-2 group"
               onClick={() => onCardClick(item.description)}
             >
               <div className="flex items-center gap-2">
-                <span className="text-2xl">{item.icon}</span>
-                <h3 className="text-sm font-medium text-gray-900">
+                <span className="text-2xl group-hover:scale-110 transition-transform">
+                  {item.icon}
+                </span>
+                <h3 className="text-sm font-medium bg-gradient-to-r from-blue-400 to-indigo-400 bg-clip-text text-transparent">
                   {item.title}
                 </h3>
               </div>
-              <p className="text-xs text-gray-600">{item.description}</p>
+              <p className="text-xs text-gray-400">{item.description}</p>
             </div>
           ))}
         </div>
-        <p className="text-xs text-gray-500 text-center mt-4">
+        <p className="text-xs text-gray-400 text-center mt-4">
           Select a topic to start exploring business insights and strategies
         </p>
       </div>
