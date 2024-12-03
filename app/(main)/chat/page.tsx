@@ -63,13 +63,13 @@ const CopyButton = ({ text }: { text: string }) => {
 
   return (
     <button
-      className="absolute right-2 top-2 p-2 rounded-lg bg-gray-800 hover:bg-gray-700 transition-colors"
+      className="absolute right-2 top-2 p-2 rounded-lg bg-white/5 hover:bg-white/10 transition-colors backdrop-blur-sm"
       onClick={handleCopy}
     >
       {copied ? (
         <Check className="h-4 w-4 text-green-400" />
       ) : (
-        <Copy className="h-4 w-4 text-gray-400" />
+        <Copy className="h-4 w-4 text-blue-400" />
       )}
     </button>
   );
@@ -78,8 +78,8 @@ const CopyButton = ({ text }: { text: string }) => {
 const LoadingSpinner = () => {
   return (
     <div className="flex items-center space-x-2">
-      <div className="h-4 w-4 animate-spin rounded-full border-2 border-indigo-600 border-t-transparent" />
-      <span className="text-sm text-gray-500">Generating response...</span>
+      <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-400 border-t-transparent" />
+      <span className="text-sm text-gray-400">Generating response...</span>
     </div>
   );
 };
@@ -92,29 +92,32 @@ const Message = ({ role, content }: MessageProps) => {
   return (
     <div
       className={cn(
-        "group w-full text-gray-800 border-b border-black/10",
-        isUser ? "bg-white" : "bg-gray-50"
+        "group w-full border-b border-white/10",
+        isUser ? "bg-white/5" : "bg-white/10",
+        "backdrop-blur-sm"
       )}
     >
       <div className="text-base gap-4 md:gap-6 md:max-w-2xl lg:max-w-[38rem] xl:max-w-3xl p-4 md:py-6 lg:px-0 m-auto flex">
         <div className="flex-shrink-0 flex flex-col relative items-end">
           <div
             className={cn(
-              "rounded-sm flex items-center justify-center",
-              isUser ? "bg-indigo-600" : "bg-indigo-200",
+              "rounded-lg flex items-center justify-center",
+              isUser
+                ? "bg-gradient-to-r from-blue-500 to-indigo-500"
+                : "bg-white/10",
               "w-[30px] h-[30px]"
             )}
           >
             {isUser ? (
               <User className="h-4 w-4 text-white" />
             ) : (
-              <Bot className="h-4 w-4 text-indigo-600" />
+              <Bot className="h-4 w-4 text-blue-400" />
             )}
           </div>
         </div>
         <div className="relative flex w-[calc(100%-50px)] flex-col gap-1">
           {isUser ? (
-            <p className="text-gray-800">{content}</p>
+            <p className="text-white/90">{content}</p>
           ) : isGenerating ? (
             <LoadingSpinner />
           ) : (
@@ -137,12 +140,13 @@ const Message = ({ role, content }: MessageProps) => {
                         style={vscDarkPlus}
                         language={match[1]}
                         PreTag="div"
-                        className="rounded-md !bg-[#1E1E1E] !mt-0"
+                        className="rounded-lg !bg-[#1a1b26] !mt-0 border border-white/10"
                         showLineNumbers
                         customStyle={{
                           margin: 0,
                           padding: "1.5rem 1rem",
                           paddingRight: "2.5rem",
+                          background: "rgba(0, 0, 0, 0.3)",
                         }}
                       >
                         {code}
@@ -153,7 +157,7 @@ const Message = ({ role, content }: MessageProps) => {
                     <code
                       {...props}
                       className={cn(
-                        "bg-gray-100 rounded px-1 py-0.5",
+                        "bg-white/5 rounded px-1 py-0.5 text-blue-400",
                         className
                       )}
                     >
@@ -162,12 +166,12 @@ const Message = ({ role, content }: MessageProps) => {
                   );
                 },
                 p: ({ children }) => (
-                  <p className="text-gray-600">{children}</p>
+                  <p className="text-gray-300">{children}</p>
                 ),
                 a: ({ node, ...props }) => (
                   <a
                     {...props}
-                    className="text-indigo-600 hover:text-indigo-700 transition-colors"
+                    className="text-blue-400 hover:text-blue-300 transition-colors"
                     target="_blank"
                     rel="noopener noreferrer"
                   />
@@ -175,22 +179,22 @@ const Message = ({ role, content }: MessageProps) => {
                 table: ({ node, ...props }) => (
                   <table
                     {...props}
-                    className="border-collapse border border-gray-200"
+                    className="border-collapse border border-white/10"
                   />
                 ),
                 th: ({ node, ...props }) => (
                   <th
                     {...props}
-                    className="border border-gray-200 px-4 py-2 bg-gray-50"
+                    className="border border-white/10 px-4 py-2 bg-white/5"
                   />
                 ),
                 td: ({ node, ...props }) => (
-                  <td {...props} className="border border-gray-200 px-4 py-2" />
+                  <td {...props} className="border border-white/10 px-4 py-2" />
                 ),
                 blockquote: ({ node, ...props }) => (
                   <blockquote
                     {...props}
-                    className="border-l-4 border-indigo-200 pl-4 italic my-4 text-gray-600"
+                    className="border-l-4 border-blue-500/50 pl-4 italic my-4 text-gray-300"
                   />
                 ),
               }}
@@ -510,7 +514,7 @@ const ChatPage = () => {
   };
 
   return (
-    <div className="flex h-[100vh] overflow-hidden">
+    <div className="flex h-[100vh] overflow-hidden bg-[#0A0F1E]">
       <Sidebar
         sessions={sessions}
         activeSessionIndex={activeSessionIndex}
@@ -518,14 +522,14 @@ const ChatPage = () => {
         onSelectChat={handleSelectChat}
         onClearAllChats={handleClearAllChats}
       />
-      <div className="relative flex h-full w-full flex-1 flex-col bg-white">
+      <div className="relative flex h-full w-full flex-1 flex-col">
         <div className="flex-1 overflow-hidden">
           <ScrollArea className="h-full overflow-y-auto" ref={scrollAreaRef}>
             <div className="flex flex-col items-center text-sm h-full">
               {messages.length === 0 && (
-                <div className="text-center px-3 py-10 text-gray-600 ">
-                  <Brain className="h-12 w-12 mx-auto mb-4 text-indigo-600" />
-                  <h2 className="text-2xl font-bold mb-2 text-gray-800">
+                <div className="text-center px-3 py-10 text-gray-300">
+                  <Brain className="h-12 w-12 mx-auto mb-4 text-blue-400" />
+                  <h2 className="text-2xl font-bold mb-2 bg-gradient-to-r from-blue-400 to-indigo-400 bg-clip-text text-transparent">
                     Welcome to VirtuHelpX
                   </h2>
 
@@ -542,7 +546,7 @@ const ChatPage = () => {
             </div>
           </ScrollArea>
         </div>
-        <div className="absolute bottom-0 left-0 w-full border-t md:border-t-0 bg-gradient-to-b from-transparent via-white to-white pt-6">
+        <div className="absolute bottom-0 left-0 w-full border-t border-white/10 bg-gradient-to-b from-transparent via-[#0A0F1E] to-[#0A0F1E] pt-6">
           <form
             onSubmit={handleSubmit}
             className="stretch mx-2 flex flex-row gap-3 last:mb-2 md:mx-4 md:last:mb-6 lg:mx-auto lg:max-w-2xl xl:max-w-3xl"
@@ -552,12 +556,12 @@ const ChatPage = () => {
                 type="button"
                 size="icon"
                 variant="ghost"
-                className="absolute left-3 bg-indigo-600  text-white hover:text-white hover:bg-indigo-600"
+                className="absolute left-3 bg-gradient-to-r from-blue-500 to-indigo-500 text-white hover:opacity-90"
                 onClick={() => document.getElementById("file-upload")?.click()}
                 disabled={isUploading}
               >
                 {isUploading ? (
-                  <div className="h-4 w-4 animate-spin rounded-full border-2 border-indigo-600 border-t-transparent" />
+                  <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
                 ) : (
                   <Paperclip className="h-4 w-4" />
                 )}
@@ -575,7 +579,7 @@ const ChatPage = () => {
                   }
                 }}
                 placeholder="Message VirtuHelpX..."
-                className="w-full resize-none bg-white  px-3 pt-8 py-4 pl-16 pr-12 rounded-xl border border-gray-200/20 shadow-[0_0_15px_rgba(0,0,0,0.05)]  "
+                className="w-full resize-none bg-white/5 backdrop-blur-sm text-white px-3 pt-8 py-4 pl-16 pr-12 rounded-xl border border-white/10 shadow-[0_0_15px_rgba(0,0,0,0.1)]"
                 style={{
                   height: "inherit",
                   maxHeight: "200px",
@@ -587,7 +591,7 @@ const ChatPage = () => {
                 size="icon"
                 variant="ghost"
                 className={cn(
-                  "absolute right-3 bg-indigo-600  text-white hover:text-white hover:bg-indigo-600",
+                  "absolute right-3 bg-gradient-to-r from-blue-500 to-indigo-500 text-white hover:opacity-90",
                   !userInput.trim() &&
                     !fileInfo &&
                     "opacity-50 cursor-not-allowed"

@@ -6,9 +6,10 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
+import { PayPalButtons, PayPalScriptProvider } from "@paypal/react-paypal-js";
 import { useUser } from "@clerk/nextjs";
 import { toast } from "@/hooks/use-toast";
+import { paypalConfig } from "@/lib/paypal";
 
 interface PaymentModalProps {
   isOpen: boolean;
@@ -102,46 +103,80 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
           </DialogDescription>
         </DialogHeader>
         <div className="grid gap-4 py-4">
-          <div className="space-y-4">
-            <div className="border rounded-lg p-4">
-              <h3 className="font-semibold flex justify-between items-center">
-                Basic Plan
-                <span className="text-indigo-600">$9.99/month</span>
-              </h3>
-              <ul className="mt-2 space-y-1 text-sm text-gray-500">
-                <li>• 5 documents per month</li>
-                <li>• 10 questions per document</li>
-                <li>• Priority support</li>
-              </ul>
-              <Button
-                className="w-full mt-4"
-                onClick={() => handleSubscribe("basic")}
-                disabled={loading}
-              >
-                {loading ? "Processing..." : "Choose Basic"}
-              </Button>
-            </div>
+          <PayPalScriptProvider options={paypalConfig}>
+            <div className="space-y-4">
+              <div className="border rounded-lg p-4">
+                <h3 className="font-semibold flex justify-between items-center">
+                  Basic Plan
+                  <span className="text-indigo-600">$9.99/month</span>
+                </h3>
+                <ul className="mt-2 space-y-1 text-sm text-gray-500">
+                  <li>• 5 documents per month</li>
+                  <li>• 10 questions per document</li>
+                  <li>• Priority support</li>
+                </ul>
+                <PayPalButtons
+                  createSubscription={(data, actions) => {
+                    return actions.subscription
+                      .create({
+                        plan_id: "BASIC_PLAN_ID", // Replace with your actual plan ID
+                      })
+                      .then((orderId) => {
+                        return orderId;
+                      });
+                  }}
+                  onApprove={(data, actions) => {
+                    handleSubscribe("basic");
+                    return Promise.resolve();
+                  }}
+                  onError={(err) => {
+                    toast({
+                      title: "Payment failed",
+                      description: "Please try again or contact support.",
+                    });
+                  }}
+                  style={{ layout: "horizontal" }}
+                  disabled={loading}
+                />
+              </div>
 
-            <div className="border rounded-lg p-4 bg-indigo-50">
-              <h3 className="font-semibold flex justify-between items-center">
-                Premium Plan
-                <span className="text-indigo-600">$29.99/month</span>
-              </h3>
-              <ul className="mt-2 space-y-1 text-sm text-gray-500">
-                <li>• Unlimited documents</li>
-                <li>• Unlimited questions</li>
-                <li>• Premium support</li>
-                <li>• Custom features</li>
-              </ul>
-              <Button
-                className="w-full mt-4"
-                onClick={() => handleSubscribe("premium")}
-                disabled={loading}
-              >
-                {loading ? "Processing..." : "Choose Premium"}
-              </Button>
+              <div className="border rounded-lg p-4 bg-indigo-50">
+                <h3 className="font-semibold flex justify-between items-center">
+                  Premium Plan
+                  <span className="text-indigo-600">$29.99/month</span>
+                </h3>
+                <ul className="mt-2 space-y-1 text-sm text-gray-500">
+                  <li>• Unlimited documents</li>
+                  <li>• Unlimited questions</li>
+                  <li>• Premium support</li>
+                  <li>• Custom features</li>
+                </ul>
+                <PayPalButtons
+                  createSubscription={(data, actions) => {
+                    return actions.subscription
+                      .create({
+                        plan_id: "PREMIUM_PLAN_ID", // Replace with your actual plan ID
+                      })
+                      .then((orderId) => {
+                        return orderId;
+                      });
+                  }}
+                  onApprove={(data, actions) => {
+                    handleSubscribe("premium");
+                    return Promise.resolve();
+                  }}
+                  onError={(err) => {
+                    toast({
+                      title: "Payment failed",
+                      description: "Please try again or contact support.",
+                    });
+                  }}
+                  style={{ layout: "horizontal" }}
+                  disabled={loading}
+                />
+              </div>
             </div>
-          </div>
+          </PayPalScriptProvider>
         </div>
       </DialogContent>
     </Dialog>

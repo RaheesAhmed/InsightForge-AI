@@ -1,35 +1,34 @@
 import { NextResponse } from "next/server";
-import Stripe from "stripe";
 import { prisma } from "@/lib/prisma";
 import { verifyJWT } from "@/lib/jwt";
 import { cookies } from "next/headers";
-
-const stripe = new Stripe(process.env.NEXT_PUBLIC_STRIPE_SECRET_KEY!, {
-  apiVersion: "2024-10-28.acacia",
-});
+import {
+  createSubscriptionPlan,
+  getPayPalAccessToken,
+  cancelSubscription,
+  getSubscriptionDetails,
+  updateSubscription,
+} from "@/lib/paypal";
 
 // Get subscription plans
 export async function GET() {
   try {
-    const [products, prices] = await Promise.all([
-      stripe.products.list({
-        active: true,
-        expand: ["data.default_price"],
-      }),
-      stripe.prices.list({
-        active: true,
-        type: "recurring",
-      }),
-    ]);
+    const accessToken = await getPayPalAccessToken();
+    const response = await fetch(
+      "https://api-m.sandbox.paypal.com/v1/billing/plans",
+      {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+      }
+    );
 
-    return NextResponse.json({
-      products: products.data,
-      prices: prices.data,
-    });
+    const data = await response.json();
+    return NextResponse.json(data);
   } catch (error) {
-    console.error("Error fetching products:", error);
+    console.error("Error fetching plans:", error);
     return NextResponse.json(
-      { error: "Failed to fetch products" },
+      { error: "Failed to fetch plans" },
       { status: 500 }
     );
   }
@@ -86,62 +85,66 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: true, subscription });
     }
 
-    // Get the product from Stripe
-    const product = await stripe.products.retrieve(planId);
-    if (!product) {
-      return NextResponse.json(
-        { error: "Invalid product selected" },
-        { status: 400 }
+    // If user has an existing subscription, handle upgrade/downgrade
+    if (user.subscription?.paypalSubscriptionId) {
+      const updatedSubscription = await updateSubscription(
+        user.subscription.paypalSubscriptionId,
+        planId
       );
-    }
-
-    // Get the price for the product
-    const price = await stripe.prices.retrieve(product.default_price as string);
-    if (!price) {
-      return NextResponse.json(
-        { error: "No price found for this product" },
-        { status: 400 }
-      );
-    }
-
-    // Create or get Stripe customer
-    let stripeCustomerId = user.subscription?.stripeCustomerId;
-    if (!stripeCustomerId) {
-      const customer = await stripe.customers.create({
-        email: user.email,
-        metadata: {
-          userId: user.id,
-        },
-      });
-      stripeCustomerId = customer.id;
-
-      // Update user's stripe customer ID
-      await prisma.subscription.update({
-        where: { userId: user.id },
-        data: { stripeCustomerId },
+      return NextResponse.json({
+        success: true,
+        subscription: updatedSubscription,
       });
     }
 
-    // Create Stripe checkout session
-    const session = await stripe.checkout.sessions.create({
-      customer: stripeCustomerId,
-      payment_method_types: ["card"],
-      line_items: [
-        {
-          price: price.id,
-          quantity: 1,
+    // Create a new subscription
+    const accessToken = await getPayPalAccessToken();
+    const response = await fetch(
+      "https://api-m.sandbox.paypal.com/v1/billing/subscriptions",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${accessToken}`,
         },
-      ],
-      mode: "subscription",
-      success_url: `${process.env.NEXTAUTH_URL}/chat?success=true`,
-      cancel_url: `${process.env.NEXTAUTH_URL}/chat?canceled=true`,
-      metadata: {
-        userId: user.id,
-        planId: planId,
-      },
-    });
+        body: JSON.stringify({
+          plan_id: planId,
+          subscriber: {
+            name: {
+              given_name: user.name?.split(" ")[0] || "",
+              surname: user.name?.split(" ").slice(1).join(" ") || "",
+            },
+            email_address: user.email,
+          },
+          application_context: {
+            brand_name: "HealthAI",
+            locale: "en-US",
+            shipping_preference: "NO_SHIPPING",
+            user_action: "SUBSCRIBE_NOW",
+            payment_method: {
+              payer_selected: "PAYPAL",
+              payee_preferred: "IMMEDIATE_PAYMENT_REQUIRED",
+            },
+            return_url: `${process.env.NEXTAUTH_URL}/subscription?success=true`,
+            cancel_url: `${process.env.NEXTAUTH_URL}/subscription?canceled=true`,
+          },
+          custom_id: user.id, // This will be used in webhooks to identify the user
+        }),
+      }
+    );
 
-    return NextResponse.json({ url: session.url });
+    const data = await response.json();
+
+    if (data.status === "APPROVAL_PENDING") {
+      return NextResponse.json({
+        url: data.links.find((link: any) => link.rel === "approve").href,
+      });
+    }
+
+    return NextResponse.json(
+      { error: "Failed to create subscription" },
+      { status: 500 }
+    );
   } catch (error) {
     console.error("Error creating subscription:", error);
     return NextResponse.json(
@@ -151,6 +154,7 @@ export async function POST(request: Request) {
   }
 }
 
+// Cancel subscription
 export async function DELETE(request: Request) {
   try {
     const token = cookies().get("auth-token")?.value;
@@ -163,33 +167,25 @@ export async function DELETE(request: Request) {
       return NextResponse.json({ error: "Invalid token" }, { status: 401 });
     }
 
-    // Get user's subscription
-    const subscription = await prisma.subscription.findUnique({
-      where: { userId: payload.userId },
-      select: { stripeCustomerId: true },
+    const user = await prisma.user.findUnique({
+      where: { id: payload.userId },
+      include: { subscription: true },
     });
 
-    if (subscription?.stripeCustomerId) {
-      // Cancel the subscription in Stripe
-      const stripeSubscriptions = await stripe.subscriptions.list({
-        customer: subscription.stripeCustomerId,
-      });
-
-      // Cancel all active subscriptions for this customer
-      for (const sub of stripeSubscriptions.data) {
-        if (sub.status === "active") {
-          await stripe.subscriptions.update(sub.id, {
-            cancel_at_period_end: true,
-          });
-        }
-      }
+    if (!user?.subscription?.paypalSubscriptionId) {
+      return NextResponse.json(
+        { error: "No active subscription" },
+        { status: 404 }
+      );
     }
 
-    // Update subscription in database to FREE plan at the end of the period
+    await cancelSubscription(user.subscription.paypalSubscriptionId);
+
     await prisma.subscription.update({
-      where: { userId: payload.userId },
+      where: { id: user.subscription.id },
       data: {
-        status: "CANCELING",
+        status: "CANCELLED",
+        validUntil: new Date(),
       },
     });
 

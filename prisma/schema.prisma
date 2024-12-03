@@ -9,35 +9,44 @@ datasource db {
 }
 
 model User {
-  id            String    @id @default(cuid())
-  email         String    @unique
-  hashedPassword String?
-  name          String?
-  username      String?   @unique
-  role          Role      @default(USER)
-  subscription  Subscription?
-  documents     Document[]
-  questions     Question[]
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-
-  @@index([email])
+  id                String        @id @default(cuid())
+  name              String?
+  email             String        @unique
+  image             String?
+  subscription      Subscription?
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
 }
 
 model Subscription {
-  id            String    @id @default(cuid())
-  userId        String    @unique
-  user          User      @relation(fields: [userId], references: [id])
-  plan          Plan      @default(FREE)
-  status        Status    @default(ACTIVE)
-  documentsLimit Int
-  questionsLimit Int
-  questionsUsed  Int      @default(0)
-  documentsUsed  Int      @default(0)
-  validUntil    DateTime
-  stripeCustomerId String?
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  id                   String    @id @default(cuid())
+  userId               String    @unique
+  user                 User      @relation(fields: [userId], references: [id])
+  paypalSubscriptionId String?   @unique
+  planId              String
+  status              String    @default("ACTIVE") // ACTIVE, CANCELLED, SUSPENDED, PAYMENT_FAILED
+  documentsLimit      Int       @default(3)
+  questionsLimit      Int       @default(20)
+  documentsUsed       Int       @default(0)
+  questionsUsed       Int       @default(0)
+  validUntil          DateTime
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+  paymentHistory      Payment[]
+}
+
+model Payment {
+  id             String       @id @default(cuid())
+  subscriptionId String
+  subscription   Subscription @relation(fields: [subscriptionId], references: [id])
+  amount         Float
+  currency       String
+  status         String      // SUCCESS, FAILED, PENDING
+  paypalOrderId  String?     @unique
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+
+  @@index([subscriptionId])
 }
 
 model Document {

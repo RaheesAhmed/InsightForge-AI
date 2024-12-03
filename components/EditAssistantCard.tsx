@@ -5,12 +5,12 @@ interface EditCardProps {
   onClick: () => void;
 }
 
-const EditCard = ({ onClick }: EditCardProps) => {
+const EditAssistantCard = ({ onClick }: EditCardProps) => {
   return (
     <div className="bg-white border border-gray-300 p-6 rounded-xl shadow-sm hover:shadow-md transition-all duration-200">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-lg font-semibold text-gray-800">Edit Settings</h2>
+          <h2 className="text-lg font-semibold text-gray-800">Edit Assistant</h2>
           <p className="text-sm text-gray-600">
             Configure your assistant settings.
           </p>
@@ -26,4 +26,4 @@ const EditCard = ({ onClick }: EditCardProps) => {
   );
 };
 
-export default EditCard;
+export default EditAssistantCard;
