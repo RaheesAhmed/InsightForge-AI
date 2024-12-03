@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getPayPalAccessToken } from "@/lib/paypal";
 import { prisma } from "@/lib/prisma";
-import { Plan, SubscriptionStatus } from "@prisma/client";
+import { Plan, Status } from "@prisma/client";
 
 export async function POST(request: Request) {
   try {
@@ -53,13 +53,13 @@ async function handleSubscriptionCreated(resource: any) {
       userId,
       paypalSubscriptionId: subscriptionId,
       plan: getPlanFromPayPalPlanId(planId),
-      status: SubscriptionStatus.ACTIVE,
+      status: Status.ACTIVE,
       validUntil: new Date(resource.billing_info.next_billing_time),
     },
     update: {
       paypalSubscriptionId: subscriptionId,
       plan: getPlanFromPayPalPlanId(planId),
-      status: SubscriptionStatus.ACTIVE,
+      status: Status.ACTIVE,
       validUntil: new Date(resource.billing_info.next_billing_time),
     },
   });
@@ -85,7 +85,7 @@ async function handleSubscriptionCancelled(resource: any) {
     await prisma.subscription.update({
       where: { id: subscription.id },
       data: {
-        status: SubscriptionStatus.CANCELLED,
+        status: Status.CANCELLED,
         validUntil: new Date(),
       },
     });
@@ -101,7 +101,7 @@ async function handleSubscriptionSuspended(resource: any) {
     await prisma.subscription.update({
       where: { id: subscription.id },
       data: {
-        status: SubscriptionStatus.SUSPENDED,
+        status: Status.SUSPENDED,
       },
     });
   }
@@ -116,7 +116,7 @@ async function handlePaymentFailed(resource: any) {
     await prisma.subscription.update({
       where: { id: subscription.id },
       data: {
-        status: SubscriptionStatus.PAYMENT_FAILED,
+        status: Status.PAYMENT_FAILED,
       },
     });
 

@@ -13,6 +13,9 @@ model User {
   name              String?
   email             String        @unique
   image             String?
+  hashedPassword    String?
+  username          String?       @unique
+  role              Role          @default(USER)
   subscription      Subscription?
   documents         Document[]
   questions         Question[]
@@ -33,7 +36,8 @@ model Subscription {
   user                 User              @relation(fields: [userId], references: [id])
   paypalSubscriptionId String?           @unique
   plan                 Plan              @default(FREE)
-  status              SubscriptionStatus @default(ACTIVE)
+  status              Status            @default(ACTIVE)
+  stripeCustomerId    String?
   documentsLimit      Int               @default(3)
   questionsLimit      Int               @default(20)
   documentsUsed       Int               @default(0)

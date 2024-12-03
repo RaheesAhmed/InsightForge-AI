@@ -9,7 +9,7 @@ import {
   getSubscriptionDetails,
   updateSubscription,
 } from "@/lib/paypal";
-import { Plan, SubscriptionStatus } from "@prisma/client";
+import { Plan, Status } from "@prisma/client";
 
 // Get subscription plans
 export async function GET() {
@@ -70,7 +70,7 @@ export async function POST(request: Request) {
           plan: Plan.FREE,
           documentsLimit: 3,
           questionsLimit: 20,
-          status: SubscriptionStatus.ACTIVE,
+          status: Status.ACTIVE,
           validUntil: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days
         },
         create: {
@@ -78,7 +78,7 @@ export async function POST(request: Request) {
           plan: Plan.FREE,
           documentsLimit: 3,
           questionsLimit: 20,
-          status: SubscriptionStatus.ACTIVE,
+          status: Status.ACTIVE,
           validUntil: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
         },
       });
@@ -129,7 +129,7 @@ export async function POST(request: Request) {
             return_url: `${process.env.NEXTAUTH_URL}/subscription?success=true`,
             cancel_url: `${process.env.NEXTAUTH_URL}/subscription?canceled=true`,
           },
-          custom_id: user.id, // This will be used in webhooks to identify the user
+          custom_id: user.id,
         }),
       }
     );
@@ -173,19 +173,21 @@ export async function DELETE(request: Request) {
       include: { subscription: true },
     });
 
-    if (!user?.subscription?.paypalSubscriptionId) {
+    if (!user?.subscription) {
       return NextResponse.json(
         { error: "No active subscription" },
         { status: 404 }
       );
     }
 
-    await cancelSubscription(user.subscription.paypalSubscriptionId);
+    if (user.subscription.paypalSubscriptionId) {
+      await cancelSubscription(user.subscription.paypalSubscriptionId);
+    }
 
     await prisma.subscription.update({
       where: { id: user.subscription.id },
       data: {
-        status: SubscriptionStatus.CANCELLED,
+        status: Status.CANCELLED,
         validUntil: new Date(),
       },
     });
