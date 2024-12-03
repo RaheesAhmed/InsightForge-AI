@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getPayPalAccessToken } from "@/lib/paypal";
 import { prisma } from "@/lib/prisma";
+import { Plan, SubscriptionStatus } from "@prisma/client";
 
 export async function POST(request: Request) {
   try {
@@ -42,7 +43,7 @@ export async function POST(request: Request) {
 }
 
 async function handleSubscriptionCreated(resource: any) {
-  const userId = resource.custom_id; // We'll pass this when creating subscription
+  const userId = resource.custom_id;
   const subscriptionId = resource.id;
   const planId = resource.plan_id;
 
@@ -51,17 +52,28 @@ async function handleSubscriptionCreated(resource: any) {
     create: {
       userId,
       paypalSubscriptionId: subscriptionId,
-      planId,
-      status: "ACTIVE",
+      plan: getPlanFromPayPalPlanId(planId),
+      status: SubscriptionStatus.ACTIVE,
       validUntil: new Date(resource.billing_info.next_billing_time),
     },
     update: {
       paypalSubscriptionId: subscriptionId,
-      planId,
-      status: "ACTIVE",
+      plan: getPlanFromPayPalPlanId(planId),
+      status: SubscriptionStatus.ACTIVE,
       validUntil: new Date(resource.billing_info.next_billing_time),
     },
   });
+}
+
+// Helper function to convert PayPal plan ID to our Plan enum
+function getPlanFromPayPalPlanId(planId: string): Plan {
+  // You'll need to map your PayPal plan IDs to your Plan enum values
+  const planMap: Record<string, Plan> = {
+    BASIC_PLAN_ID: Plan.BASIC,
+    PREMIUM_PLAN_ID: Plan.PREMIUM,
+    ENTERPRISE_PLAN_ID: Plan.ENTERPRISE,
+  };
+  return planMap[planId] || Plan.FREE;
 }
 
 async function handleSubscriptionCancelled(resource: any) {
@@ -73,7 +85,7 @@ async function handleSubscriptionCancelled(resource: any) {
     await prisma.subscription.update({
       where: { id: subscription.id },
       data: {
-        status: "CANCELLED",
+        status: SubscriptionStatus.CANCELLED,
         validUntil: new Date(),
       },
     });
@@ -89,7 +101,7 @@ async function handleSubscriptionSuspended(resource: any) {
     await prisma.subscription.update({
       where: { id: subscription.id },
       data: {
-        status: "SUSPENDED",
+        status: SubscriptionStatus.SUSPENDED,
       },
     });
   }
@@ -104,7 +116,7 @@ async function handlePaymentFailed(resource: any) {
     await prisma.subscription.update({
       where: { id: subscription.id },
       data: {
-        status: "PAYMENT_FAILED",
+        status: SubscriptionStatus.PAYMENT_FAILED,
       },
     });
 

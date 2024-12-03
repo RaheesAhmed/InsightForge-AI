@@ -9,6 +9,7 @@ import {
   getSubscriptionDetails,
   updateSubscription,
 } from "@/lib/paypal";
+import { Plan, SubscriptionStatus } from "@prisma/client";
 
 // Get subscription plans
 export async function GET() {
@@ -66,18 +67,18 @@ export async function POST(request: Request) {
       const subscription = await prisma.subscription.upsert({
         where: { userId: user.id },
         update: {
-          plan: "FREE",
+          plan: Plan.FREE,
           documentsLimit: 3,
           questionsLimit: 20,
-          status: "ACTIVE",
+          status: SubscriptionStatus.ACTIVE,
           validUntil: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days
         },
         create: {
           userId: user.id,
-          plan: "FREE",
+          plan: Plan.FREE,
           documentsLimit: 3,
           questionsLimit: 20,
-          status: "ACTIVE",
+          status: SubscriptionStatus.ACTIVE,
           validUntil: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
         },
       });
@@ -184,7 +185,7 @@ export async function DELETE(request: Request) {
     await prisma.subscription.update({
       where: { id: user.subscription.id },
       data: {
-        status: "CANCELLED",
+        status: SubscriptionStatus.CANCELLED,
         validUntil: new Date(),
       },
     });

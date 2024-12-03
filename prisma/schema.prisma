@@ -14,37 +14,52 @@ model User {
   email             String        @unique
   image             String?
   subscription      Subscription?
+  documents         Document[]
+  questions         Question[]
   createdAt         DateTime      @default(now())
   updatedAt         DateTime      @updatedAt
 }
 
+enum SubscriptionStatus {
+  ACTIVE
+  CANCELLED
+  SUSPENDED
+  PAYMENT_FAILED
+}
+
 model Subscription {
-  id                   String    @id @default(cuid())
-  userId               String    @unique
-  user                 User      @relation(fields: [userId], references: [id])
-  paypalSubscriptionId String?   @unique
-  planId              String
-  status              String    @default("ACTIVE") // ACTIVE, CANCELLED, SUSPENDED, PAYMENT_FAILED
-  documentsLimit      Int       @default(3)
-  questionsLimit      Int       @default(20)
-  documentsUsed       Int       @default(0)
-  questionsUsed       Int       @default(0)
+  id                   String            @id @default(cuid())
+  userId               String            @unique
+  user                 User              @relation(fields: [userId], references: [id])
+  paypalSubscriptionId String?           @unique
+  plan                 Plan              @default(FREE)
+  status              SubscriptionStatus @default(ACTIVE)
+  documentsLimit      Int               @default(3)
+  questionsLimit      Int               @default(20)
+  documentsUsed       Int               @default(0)
+  questionsUsed       Int               @default(0)
   validUntil          DateTime
-  createdAt           DateTime  @default(now())
-  updatedAt           DateTime  @updatedAt
+  createdAt           DateTime          @default(now())
+  updatedAt           DateTime          @updatedAt
   paymentHistory      Payment[]
 }
 
+enum PaymentStatus {
+  SUCCESS
+  FAILED
+  PENDING
+}
+
 model Payment {
-  id             String       @id @default(cuid())
+  id             String         @id @default(cuid())
   subscriptionId String
-  subscription   Subscription @relation(fields: [subscriptionId], references: [id])
+  subscription   Subscription   @relation(fields: [subscriptionId], references: [id])
   amount         Float
   currency       String
-  status         String      // SUCCESS, FAILED, PENDING
-  paypalOrderId  String?     @unique
-  createdAt      DateTime    @default(now())
-  updatedAt      DateTime    @updatedAt
+  status         PaymentStatus
+  paypalOrderId  String?       @unique
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
 
   @@index([subscriptionId])
 }

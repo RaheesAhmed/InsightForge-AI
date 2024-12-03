@@ -5,6 +5,7 @@ import { Card } from "./ui/card";
 import { Switch } from "./ui/switch";
 import { useAuth } from "@/lib/useAuth";
 import { motion } from "framer-motion";
+import { useRouter } from "next/navigation";
 
 const pricingPlans = [
   {

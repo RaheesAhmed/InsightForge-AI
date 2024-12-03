@@ -233,11 +233,6 @@ function Admin({ sidebarItems }: AdminProps) {
           </div>
         </div>
 
-<<<<<<< HEAD
-=======
-        
-
->>>>>>> e4e86f120b46d8f10a89d57c80fc4fee63cc41ae
         {/* Navigation */}
         <nav className="p-4">
           {sidebarItems.map((item) => (
