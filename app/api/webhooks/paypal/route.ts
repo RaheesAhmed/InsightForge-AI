@@ -133,7 +133,7 @@ async function handleSubscriptionUpdated(resource: any) {
     await prisma.subscription.update({
       where: { id: subscription.id },
       data: {
-        planId: resource.plan_id,
+        plan: getPlanFromPayPalPlanId(resource.plan_id),
         validUntil: new Date(resource.billing_info.next_billing_time),
       },
     });

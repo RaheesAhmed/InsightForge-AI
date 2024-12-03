@@ -11,6 +11,13 @@ import { useUser } from "@clerk/nextjs";
 import { toast } from "@/hooks/use-toast";
 import { paypalConfig } from "@/lib/paypal";
 
+const PLAN_IDS = {
+  BASIC: process.env.NEXT_PUBLIC_PAYPAL_BASIC_PLAN_ID || "BASIC_PLAN_ID",
+  PREMIUM: process.env.NEXT_PUBLIC_PAYPAL_PREMIUM_PLAN_ID || "PREMIUM_PLAN_ID",
+  ENTERPRISE:
+    process.env.NEXT_PUBLIC_PAYPAL_ENTERPRISE_PLAN_ID || "ENTERPRISE_PLAN_ID",
+};
+
 interface PaymentModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -119,14 +126,14 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
                   createSubscription={(data, actions) => {
                     return actions.subscription
                       .create({
-                        plan_id: "BASIC_PLAN_ID", // Replace with your actual plan ID
+                        plan_id: PLAN_IDS.BASIC,
                       })
                       .then((orderId) => {
                         return orderId;
                       });
                   }}
                   onApprove={(data, actions) => {
-                    handleSubscribe("basic");
+                    handleSubscribe(PLAN_IDS.BASIC);
                     return Promise.resolve();
                   }}
                   onError={(err) => {
@@ -155,14 +162,14 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
                   createSubscription={(data, actions) => {
                     return actions.subscription
                       .create({
-                        plan_id: "PREMIUM_PLAN_ID", // Replace with your actual plan ID
+                        plan_id: PLAN_IDS.PREMIUM,
                       })
                       .then((orderId) => {
                         return orderId;
                       });
                   }}
                   onApprove={(data, actions) => {
-                    handleSubscribe("premium");
+                    handleSubscribe(PLAN_IDS.PREMIUM);
                     return Promise.resolve();
                   }}
                   onError={(err) => {
