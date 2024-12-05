@@ -1,16 +1,6 @@
-import { useState, useEffect, useMemo } from "react"
-import { format } from "date-fns"
-import { useTable, useSortBy, usePagination, useGlobalFilter } from "react-table"
-import { Search, ChevronDown, ChevronUp, Users, MessageSquare, FileText, Eye, Trash2, Loader2, MoreVertical } from "lucide-react"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog"
+import React, { useState, useEffect } from "react";
+import { adminApi, User, Payment } from "@/app/(main)/admin/api";
+import { useToast } from "@/hooks/use-toast";
 import {
   Table,
   TableBody,
@@ -18,310 +8,413 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "@/components/ui/table"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { Badge } from "@/components/ui/badge"
+} from "@/components/ui/table";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuLabel,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
-import { Skeleton } from "@/components/ui/skeleton"
-import { toast } from "@/hooks/use-toast"
+} from "@/components/ui/dropdown-menu";
+import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Card } from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  MoreVertical,
+  Search,
+  UserCog,
+  CreditCard,
+  AlertTriangle,
+  CheckCircle,
+  XCircle,
+} from "lucide-react";
+import { format } from "date-fns";
 
-interface User {
-  id: string;
-  email: string;
-  name: string | null;
-  imageUrl: string | null;
-  createdAt: string;
-  subscription: {
-    plan: string;
-    status: string;
-    validUntil: string;
-  } | null;
-  stats: {
-    questions: number;
-    documents: number;
-  };
-}
+const ITEMS_PER_PAGE = 10;
 
-const UserTableSkeleton = () => {
-  return (
-    <div className="space-y-4 animate-pulse">
-      <div className="flex items-center justify-between">
-        <Skeleton className="h-10 w-[250px]" />
-        <Skeleton className="h-10 w-[200px]" />
-      </div>
-      <div className="rounded-lg border">
-        <div className="h-12 border-b px-4 bg-gray-50/50" />
-        {[1, 2, 3, 4, 5].map((i) => (
-          <div key={i} className="flex items-center space-x-4 px-4 py-3 border-b last:border-0">
-            <Skeleton className="h-10 w-10 rounded-full" />
-            <Skeleton className="h-4 w-[250px]" />
-            <Skeleton className="h-4 w-[150px]" />
-            <Skeleton className="h-4 w-[100px]" />
-            <Skeleton className="h-4 w-[100px]" />
-          </div>
-        ))}
-      </div>
-    </div>
-  )
-}
-
-const UserManagement = () => {
+export default function UserManagement() {
   const [users, setUsers] = useState<User[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [filterInput, setFilterInput] = useState("");
-  const [selectedUser, setSelectedUser] = useState<User | null>(null);
-  const [showUserDetails, setShowUserDetails] = useState(false);
+  const [payments, setPayments] = useState<Payment[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [selectedPlan, setSelectedPlan] = useState("all");
+  const [selectedStatus, setSelectedStatus] = useState("all");
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [activeTab, setActiveTab] = useState("users");
+  const { toast } = useToast();
 
   const fetchUsers = async () => {
     try {
-      const response = await fetch("/api/admin/users");
-      if (!response.ok) {
-        throw new Error("Failed to fetch users");
-      }
-      const data = await response.json();
-      setUsers(data);
-      setLoading(false);
-    } catch (err: any) {
-      console.error("Error fetching users:", err);
-      setError(err.message);
-      setLoading(false);
+      setIsLoading(true);
+      const response = await adminApi.getUsers({
+        search: searchTerm,
+        plan: selectedPlan !== "all" ? selectedPlan : undefined,
+        status: selectedStatus !== "all" ? selectedStatus : undefined,
+        page: currentPage,
+        limit: ITEMS_PER_PAGE,
+      });
+      setUsers(response.users);
+      setTotalPages(response.totalPages);
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to fetch users",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const fetchPayments = async () => {
+    try {
+      setIsLoading(true);
+      const response = await adminApi.getPayments({
+        page: currentPage,
+        limit: ITEMS_PER_PAGE,
+      });
+      setPayments(response.payments);
+      setTotalPages(response.totalPages);
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to fetch payments",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchUsers();
-  }, []);
+    if (activeTab === "users") {
+      fetchUsers();
+    } else {
+      fetchPayments();
+    }
+  }, [searchTerm, selectedPlan, selectedStatus, currentPage, activeTab]);
 
-  const handleDelete = async (userId: string) => {
-    if (window.confirm("Are you sure you want to delete this user? This action cannot be undone.")) {
-      try {
-        const response = await fetch("/api/admin/users", {
-          method: "DELETE",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ userId }),
-        });
-
-        if (!response.ok) {
-          throw new Error("Failed to delete user");
-        }
-
-        await fetchUsers();
-      } catch (err: any) {
-        console.error("Error deleting user:", err);
-        setError(err.message);
-      }
+  const handleUpdateUser = async (userId: string, data: Partial<User>) => {
+    try {
+      await adminApi.updateUser(userId, data);
+      toast({
+        title: "Success",
+        description: "User updated successfully",
+      });
+      fetchUsers();
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to update user",
+        variant: "destructive",
+      });
     }
   };
 
-  const handleViewDetails = (user: User) => {
-    setSelectedUser(user);
-    setShowUserDetails(true);
+  const handleRefundPayment = async (paymentId: string) => {
+    try {
+      await adminApi.refundPayment(paymentId);
+      toast({
+        title: "Success",
+        description: "Payment refunded successfully",
+      });
+      fetchPayments();
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to refund payment",
+        variant: "destructive",
+      });
+    }
   };
 
-  const showToast = (message: string, type: 'success' | 'error' = 'success') => {
-    toast({
-      title: type === 'success' ? 'Success' : 'Error',
-      description: message,
-      variant: type === 'success' ? 'default' : 'destructive',
-    })
-  }
+  const getPlanBadgeVariant = (plan: string) => {
+    switch (plan) {
+      case "ENTERPRISE":
+        return "default";
+      case "PRO":
+        return "secondary";
+      default:
+        return "outline";
+    }
+  };
 
-  if (loading) {
-    return (
-      <div className="p-6 space-y-6">
-        <div className="flex items-center justify-between">
-          <h2 className="text-3xl font-bold tracking-tight">User Management</h2>
-        </div>
-        <UserTableSkeleton />
-      </div>
-    )
-  }
+  const getStatusBadgeVariant = (status: string) => {
+    switch (status) {
+      case "ACTIVE":
+        return "default";
+      case "SUSPENDED":
+        return "destructive";
+      case "DELETED":
+        return "secondary";
+      default:
+        return "outline";
+    }
+  };
 
-  if (error) {
-    return (
-      <div className="p-6">
-        <Card className="border-destructive">
-          <CardHeader>
-            <CardTitle className="text-destructive">Error Loading Users</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p>{error}</p>
-            <Button 
-              onClick={() => {
-                setError(null);
-                setLoading(true);
-                fetchUsers();
-              }}
-              className="mt-4"
-            >
-              Retry
-            </Button>
-          </CardContent>
-        </Card>
-      </div>
-    )
-  }
+  const getPaymentStatusIcon = (status: string) => {
+    switch (status) {
+      case "succeeded":
+        return <CheckCircle className="h-4 w-4 text-green-500" />;
+      case "failed":
+        return <XCircle className="h-4 w-4 text-red-500" />;
+      case "pending":
+        return <AlertTriangle className="h-4 w-4 text-yellow-500" />;
+      default:
+        return <CreditCard className="h-4 w-4 text-gray-500" />;
+    }
+  };
 
   return (
-    <div className="p-6 space-y-6 animate-in fade-in slide-in-from-bottom-5 duration-500">
-      <div className="flex items-center justify-between">
-        <h2 className="text-3xl font-bold tracking-tight">User Management</h2>
-        <div className="flex items-center space-x-4">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 h-4 w-4" />
-            <Input
-              placeholder="Search users..."
-              value={filterInput}
-              onChange={(e) => setFilterInput(e.target.value)}
-              className="pl-10 w-[300px]"
-            />
+    <Card className="bg-[#0A0F1E]/50 backdrop-blur-xl border-white/10">
+      <div className="p-6">
+        <Tabs value={activeTab} onValueChange={setActiveTab}>
+          <div className="flex items-center justify-between mb-6">
+            <div>
+              <h3 className="text-xl font-bold text-white">User Management</h3>
+              <p className="text-sm text-gray-400">
+                Manage users and payment information
+              </p>
+            </div>
+            <TabsList>
+              <TabsTrigger value="users">Users</TabsTrigger>
+              <TabsTrigger value="payments">Payments</TabsTrigger>
+            </TabsList>
           </div>
-          <Button variant="outline">
-            Export Users
-          </Button>
-        </div>
-      </div>
 
-      <Card>
-        <Table>
-          <TableHeader>
-            <TableRow className="bg-gray-50/50">
-              <TableHead className="w-[300px]">User</TableHead>
-              <TableHead>Plan</TableHead>
-              <TableHead>Questions</TableHead>
-              <TableHead>Documents</TableHead>
-              <TableHead>Joined</TableHead>
-              <TableHead className="text-right">Actions</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {users.map((user) => (
-              <TableRow key={user.id} className="group hover:bg-gray-50/50 transition-colors">
-                <TableCell>
-                  <div className="flex items-center space-x-3">
-                    <Avatar>
-                      <AvatarImage src={user.imageUrl || undefined} />
-                      <AvatarFallback>{user.name?.[0] || user.email[0].toUpperCase()}</AvatarFallback>
-                    </Avatar>
-                    <div>
-                      <div className="font-medium">{user.name || 'Unnamed User'}</div>
-                      <div className="text-sm text-gray-500">{user.email}</div>
-                    </div>
-                  </div>
-                </TableCell>
-                <TableCell>
-                  <Badge variant={user.subscription?.status === 'active' ? 'default' : 'secondary'}>
-                    {user.subscription?.plan || 'Free'}
-                  </Badge>
-                </TableCell>
-                <TableCell>{user.stats.questions}</TableCell>
-                <TableCell>{user.stats.documents}</TableCell>
-                <TableCell>{format(new Date(user.createdAt), 'MMM d, yyyy')}</TableCell>
-                <TableCell className="text-right">
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="icon" className="opacity-0 group-hover:opacity-100 transition-opacity">
-                        <MoreVertical className="h-4 w-4" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                      <DropdownMenuItem onClick={() => {
-                        setSelectedUser(user);
-                        setShowUserDetails(true);
-                      }}>
-                        <Eye className="h-4 w-4 mr-2" />
-                        View Details
-                      </DropdownMenuItem>
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem
-                        className="text-red-600"
-                        onClick={() => handleDelete(user.id)}
-                      >
-                        <Trash2 className="h-4 w-4 mr-2" />
-                        Delete User
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </Card>
-
-      <Dialog open={showUserDetails} onOpenChange={setShowUserDetails}>
-        <DialogContent className="sm:max-w-[600px]">
-          <DialogHeader>
-            <DialogTitle>User Details</DialogTitle>
-            <DialogDescription>
-              Detailed information about the selected user.
-            </DialogDescription>
-          </DialogHeader>
-          {selectedUser && (
-            <div className="space-y-6">
-              <div className="flex items-center space-x-4">
-                <Avatar className="h-16 w-16">
-                  <AvatarImage src={selectedUser.imageUrl || undefined} />
-                  <AvatarFallback>{selectedUser.name?.[0] || selectedUser.email[0].toUpperCase()}</AvatarFallback>
-                </Avatar>
-                <div>
-                  <h3 className="text-lg font-medium">{selectedUser.name || 'Unnamed User'}</h3>
-                  <p className="text-gray-500">{selectedUser.email}</p>
+          <TabsContent value="users">
+            <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex items-center gap-2">
+                <div className="relative">
+                  <Search className="absolute left-2 top-2.5 h-4 w-4 text-gray-500" />
+                  <Input
+                    placeholder="Search users..."
+                    className="pl-8"
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                  />
                 </div>
-              </div>
-              
-              <div className="grid grid-cols-2 gap-4">
-                <Card>
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-sm font-medium">Questions</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-2xl font-bold">{selectedUser.stats.questions}</div>
-                  </CardContent>
-                </Card>
-                <Card>
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-sm font-medium">Documents</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-2xl font-bold">{selectedUser.stats.documents}</div>
-                  </CardContent>
-                </Card>
-              </div>
-
-              <div>
-                <h4 className="text-sm font-medium mb-2">Subscription Details</h4>
-                <div className="bg-gray-50 p-4 rounded-lg">
-                  <div className="flex justify-between mb-2">
-                    <span className="text-gray-500">Plan</span>
-                    <span className="font-medium">{selectedUser.subscription?.plan || 'Free'}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-500">Status</span>
-                    <Badge variant={selectedUser.subscription?.status === 'active' ? 'default' : 'secondary'}>
-                      {selectedUser.subscription?.status || 'inactive'}
-                    </Badge>
-                  </div>
-                </div>
+                <Select value={selectedPlan} onValueChange={setSelectedPlan}>
+                  <SelectTrigger className="w-[120px]">
+                    <SelectValue placeholder="Plan" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Plans</SelectItem>
+                    <SelectItem value="FREE">Free</SelectItem>
+                    <SelectItem value="PRO">Pro</SelectItem>
+                    <SelectItem value="ENTERPRISE">Enterprise</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Select
+                  value={selectedStatus}
+                  onValueChange={setSelectedStatus}
+                >
+                  <SelectTrigger className="w-[120px]">
+                    <SelectValue placeholder="Status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Status</SelectItem>
+                    <SelectItem value="ACTIVE">Active</SelectItem>
+                    <SelectItem value="SUSPENDED">Suspended</SelectItem>
+                    <SelectItem value="DELETED">Deleted</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
             </div>
-          )}
-        </DialogContent>
-      </Dialog>
-    </div>
-  )
-}
 
-export default UserManagement;
+            <div className="rounded-md border border-white/10">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>User</TableHead>
+                    <TableHead>Plan</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Usage</TableHead>
+                    <TableHead>Joined</TableHead>
+                    <TableHead></TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {users.map((user) => (
+                    <TableRow key={user.id}>
+                      <TableCell>
+                        <div>
+                          <p className="font-medium text-white">{user.email}</p>
+                          {user.name && (
+                            <p className="text-sm text-gray-400">{user.name}</p>
+                          )}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant={getPlanBadgeVariant(user.plan)}>
+                          {user.plan}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant={getStatusBadgeVariant(user.status)}>
+                          {user.status}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <div className="text-sm">
+                          <p>
+                            Questions: {user.usage.questionsUsed}/
+                            {user.usage.questionsLimit}
+                          </p>
+                          <p>
+                            Documents: {user.usage.documentsUsed}/
+                            {user.usage.documentsLimit}
+                          </p>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        {format(new Date(user.createdAt), "MMM d, yyyy")}
+                      </TableCell>
+                      <TableCell>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" className="h-8 w-8 p-0">
+                              <MoreVertical className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                            <DropdownMenuItem
+                              onClick={() =>
+                                handleUpdateUser(user.id, {
+                                  status:
+                                    user.status === "ACTIVE"
+                                      ? "SUSPENDED"
+                                      : "ACTIVE",
+                                })
+                              }
+                            >
+                              {user.status === "ACTIVE"
+                                ? "Suspend User"
+                                : "Activate User"}
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              onClick={() =>
+                                handleUpdateUser(user.id, {
+                                  plan: "PRO",
+                                })
+                              }
+                            >
+                              Upgrade to Pro
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          </TabsContent>
+
+          <TabsContent value="payments">
+            <div className="rounded-md border border-white/10">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Date</TableHead>
+                    <TableHead>User</TableHead>
+                    <TableHead>Amount</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Payment Method</TableHead>
+                    <TableHead></TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {payments.map((payment) => (
+                    <TableRow key={payment.id}>
+                      <TableCell>
+                        {format(new Date(payment.createdAt), "MMM d, yyyy")}
+                      </TableCell>
+                      <TableCell>{payment.userId}</TableCell>
+                      <TableCell>
+                        {new Intl.NumberFormat("en-US", {
+                          style: "currency",
+                          currency: payment.currency,
+                        }).format(payment.amount / 100)}
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          {getPaymentStatusIcon(payment.status)}
+                          <span className="capitalize">{payment.status}</span>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        {payment.paymentMethod.type === "card" && (
+                          <div className="flex items-center gap-2">
+                            <CreditCard className="h-4 w-4" />
+                            <span>
+                              {payment.paymentMethod.brand} ****
+                              {payment.paymentMethod.last4}
+                            </span>
+                          </div>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" className="h-8 w-8 p-0">
+                              <MoreVertical className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                            {payment.status === "succeeded" && (
+                              <DropdownMenuItem
+                                onClick={() => handleRefundPayment(payment.id)}
+                              >
+                                Refund Payment
+                              </DropdownMenuItem>
+                            )}
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          </TabsContent>
+        </Tabs>
+
+        {/* Pagination */}
+        <div className="mt-4 flex items-center justify-between">
+          <p className="text-sm text-gray-400">
+            Page {currentPage} of {totalPages}
+          </p>
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+              disabled={currentPage === 1}
+            >
+              Previous
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+              disabled={currentPage === totalPages}
+            >
+              Next
+            </Button>
+          </div>
+        </div>
+      </div>
+    </Card>
+  );
+}

@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
-import { SignJWT } from "jose";
 import { cookies } from "next/headers";
-import { getJwtSecretKey } from "@/lib/jwt";
+import { createToken, verifyToken } from "@/lib/jwt";
 
 // Admin credentials - in production, use environment variables
 const ADMIN_EMAIL = process.env.ADMIN_EMAIL || "admin@virtuhelp.com";
@@ -21,27 +20,20 @@ export async function POST(request: Request) {
 
     // Verify admin credentials
     if (email !== ADMIN_EMAIL || password !== ADMIN_PASSWORD) {
-      return NextResponse.json({ error: "Invalid credentials" }, { status: 401 });
+      return NextResponse.json(
+        { error: "Invalid credentials" },
+        { status: 401 }
+      );
     }
 
-    // Generate admin token with explicit timestamps
-    const iat = Math.floor(Date.now() / 1000);
-    const exp = iat + 24 * 60 * 60; // 24 hours from now
-
-    const token = await new SignJWT({ 
+    // Generate admin token
+    const token = await createToken({
       isAdmin: true,
       email: ADMIN_EMAIL,
-      iat,
-      exp 
-    })
-      .setProtectedHeader({ alg: "HS256", typ: "JWT" })
-      .setIssuedAt(iat)
-      .setExpirationTime(exp)
-      .sign(getJwtSecretKey());
+    });
 
     // Set admin token in cookie with secure settings
-    const cookieStore = cookies();
-    cookieStore.set("admin-token", token, {
+    cookies().set("admin-token", token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
       sameSite: "lax",
@@ -49,13 +41,12 @@ export async function POST(request: Request) {
       maxAge: 24 * 60 * 60, // 24 hours
     });
 
-    return NextResponse.json({ 
+    return NextResponse.json({
       success: true,
-      token,
       user: {
         email: ADMIN_EMAIL,
-        isAdmin: true
-      }
+        isAdmin: true,
+      },
     });
   } catch (error) {
     console.error("Admin auth error:", error);
@@ -66,35 +57,26 @@ export async function POST(request: Request) {
   }
 }
 
-// Verify admin session
-export async function GET() {
+export async function GET(request: Request) {
   try {
-    const cookieStore = cookies();
-    const token = cookieStore.get("admin-token")?.value;
+    const token = cookies().get("admin-token")?.value;
 
     if (!token) {
-      return NextResponse.json(
-        { error: "No authentication token" },
-        { status: 401 }
-      );
+      return NextResponse.json({ error: "No token found" }, { status: 401 });
     }
 
-    // Verify the token
-    const verified = await new SignJWT({}).verify(token, getJwtSecretKey());
-    
-    if (!verified || !verified.payload.isAdmin) {
-      return NextResponse.json(
-        { error: "Invalid admin token" },
-        { status: 401 }
-      );
+    const payload = await verifyToken(token);
+
+    if (!payload || !payload.isAdmin) {
+      return NextResponse.json({ error: "Invalid token" }, { status: 401 });
     }
 
     return NextResponse.json({
       success: true,
       user: {
-        email: ADMIN_EMAIL,
-        isAdmin: true
-      }
+        email: payload.email,
+        isAdmin: true,
+      },
     });
   } catch (error) {
     console.error("Admin session error:", error);

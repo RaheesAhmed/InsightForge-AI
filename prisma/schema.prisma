@@ -5,110 +5,69 @@ generator client {
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
-  directUrl = env("DIRECT_URL")
 }
 
 model User {
-  id                String        @id @default(cuid())
-  name              String?
-  email             String        @unique
-  image             String?
-  hashedPassword    String?
-  username          String?       @unique
-  role              Role          @default(USER)
-  subscription      Subscription?
-  documents         Document[]
-  questions         Question[]
-  createdAt         DateTime      @default(now())
-  updatedAt         DateTime      @updatedAt
-}
-
-enum SubscriptionStatus {
-  ACTIVE
-  CANCELLED
-  SUSPENDED
-  PAYMENT_FAILED
+  id                    String       @id @default(cuid())
+  email                 String       @unique
+  name                  String?
+  role                  String       @default("USER") // USER, ADMIN
+  subscription          Subscription?
+  documents            Document[]
+  questions            Question[]
+  createdAt            DateTime     @default(now())
+  updatedAt            DateTime     @updatedAt
+  questionsUsed        Int          @default(0)
+  documentsUploaded    Int          @default(0)
+  subscriptionPlan     String       @default("FREE") // FREE, PROFESSIONAL, ENTERPRISE
+  subscriptionStatus   String       @default("ACTIVE") // ACTIVE, SUSPENDED, CANCELLED
+  subscriptionValidUntil DateTime   @default(dbgenerated("NOW() + interval '30 days'"))
 }
 
 model Subscription {
-  id              String            @id @default(cuid())
-  userId          String            @unique
-  user            User              @relation(fields: [userId], references: [id])
-  plan            Plan              // Temporarily removing @default(FREE)
-  paypalId        String?           // PayPal subscription ID
-  documentsLimit  Int               @default(3)
-  questionsLimit  Int               @default(20)
-  documentsUsed   Int               @default(0)
-  questionsUsed   Int               @default(0)
-  validUntil      DateTime
-  status          Status            @default(ACTIVE)
-  createdAt       DateTime          @default(now())
-  updatedAt       DateTime          @updatedAt
-  payments        Payment[]
-
-  @@index([userId])
-  @@index([paypalId])
-}
-
-enum PaymentStatus {
-  SUCCESS
-  FAILED
-  PENDING
-}
-
-model Payment {
-  id             String         @id @default(cuid())
-  subscriptionId String
-  subscription   Subscription   @relation(fields: [subscriptionId], references: [id])
-  amount         Float
-  currency       String
-  status         PaymentStatus
-  paypalOrderId  String?       @unique
-  createdAt      DateTime      @default(now())
-  updatedAt      DateTime      @updatedAt
-
-  @@index([subscriptionId])
+  id                  String    @id @default(cuid())
+  user                User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId              String    @unique
+  plan                String    @default("FREE") // FREE, PROFESSIONAL, ENTERPRISE
+  status              String    @default("ACTIVE") // ACTIVE, SUSPENDED, CANCELLED
+  questionsLimit      Int       @default(20)
+  documentsLimit      Int       @default(3)
+  questionsUsed       Int       @default(0)
+  documentsUsed       Int       @default(0)
+  validUntil          DateTime  @default(dbgenerated("NOW() + interval '30 days'"))
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
 }
 
 model Document {
-  id            String    @id @default(cuid())
-  title         String
-  description   String?
-  content       String    @db.Text
-  uploadedBy    String    // User ID
-  user          User      @relation(fields: [uploadedBy], references: [id])
-  isPublic      Boolean   @default(false)
-  questions     Question[]
-  vectorId      String?   // Reference to vector store
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  id          String    @id @default(cuid())
+  title       String
+  content     String
+  description String?
+  user        User      @relation(fields: [uploadedBy], references: [id], onDelete: Cascade)
+  uploadedBy  String
+  isPublic    Boolean   @default(false)
+  vectorId    String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
 }
 
 model Question {
-  id            String    @id @default(cuid())
-  content       String
-  answer        String    @db.Text
-  userId        String
-  user          User      @relation(fields: [userId], references: [id])
-  documentId    String
-  document      Document  @relation(fields: [documentId], references: [id])
-  createdAt     DateTime  @default(now())
+  id          String    @id @default(cuid())
+  content     String
+  answer      String
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId      String
+  documentId  String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
 }
 
-enum Role {
-  ADMIN
-  USER
-}
-
-enum Plan {
-  FREE
-  PROFESSIONAL
-  ENTERPRISE
-}
-
-enum Status {
-  ACTIVE
-  CANCELLED
-  SUSPENDED
-  PAYMENT_FAILED
+model AdminLog {
+  id          String    @id @default(cuid())
+  action      String
+  adminId     String
+  targetUserId String?
+  details     String
+  createdAt   DateTime  @default(now())
 }
