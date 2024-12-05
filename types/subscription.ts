@@ -6,13 +6,15 @@ export interface SubscriptionPlan {
   features: string[];
   documentsPerMonth: number;
   questionsPerMonth: number;
+  planId: string | null;
+  popular?: boolean;
 }
 
-export interface Subscription {
+export interface SubscriptionStatus {
+  isActive: boolean;
   plan: string;
-  documentsPerMonth: number;
-  questionsPerMonth: number;
-  questionsUsed: number;
-  documentsUsed: number;
+  documentsRemaining: number;
+  questionsRemaining: number;
   validUntil: Date;
+  nextBillingDate?: Date;
 }

@@ -1,34 +1,21 @@
 // app/layout.tsx
-import React from "react";
-import { ClerkProvider } from "@clerk/nextjs";
+"use client";
+
+import { Inter } from "next/font/google";
 import "./globals.css";
-import AuthenticatedComponent from "@/components/AuthenticatedComponent";
-import NavBar from "@/components/NavBar";
-import { Toaster } from "sonner";
-import dynamic from "next/dynamic";
+import { Providers } from "./providers";
 
-// Create a client-side only wrapper for PayPal
-const PayPalWrapper = dynamic(() => import("@/components/PayPalWrapper"), {
-  ssr: false,
-});
+const inter = Inter({ subsets: ["latin"] });
 
-export default function RootLayout({ children }: any) {
+export default function RootLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   return (
     <html lang="en">
-      <body>
-        <ClerkProvider>
-          <PayPalWrapper>
-            <div>
-              <main>
-                {/* <NavBar /> */}
-                {/* <AuthenticatedComponent> */}
-                {children}
-                {/* </AuthenticatedComponent> */}
-              </main>
-            </div>
-          </PayPalWrapper>
-        </ClerkProvider>
-        <Toaster />
+      <body className={inter.className}>
+        <Providers>{children}</Providers>
       </body>
     </html>
   );

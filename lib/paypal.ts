@@ -1,3 +1,5 @@
+"use client";
+
 import { ReactPayPalScriptOptions } from "@paypal/react-paypal-js";
 
 export interface PlanData {
@@ -11,41 +13,24 @@ export interface PlanData {
 
 const PAYPAL_CLIENT_ID = process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID;
 
-if (!PAYPAL_CLIENT_ID) {
+if (typeof window !== "undefined" && !PAYPAL_CLIENT_ID) {
   throw new Error(
     "NEXT_PUBLIC_PAYPAL_CLIENT_ID is not defined in environment variables"
   );
 }
 
 export const paypalConfig: ReactPayPalScriptOptions = {
-  "client-id": PAYPAL_CLIENT_ID,
+  "client-id": PAYPAL_CLIENT_ID || "",
   currency: "USD",
   intent: "subscription",
   vault: true,
   components: "buttons",
-  clientId: "",
 };
 
 export async function getPayPalAccessToken() {
-  const clientId = process.env.PAYPAL_CLIENT_ID;
-  const clientSecret = process.env.PAYPAL_SECRET_KEY;
-
-  if (!clientId || !clientSecret) {
-    throw new Error("PayPal credentials are not configured");
-  }
-
-  const auth = Buffer.from(`${clientId}:${clientSecret}`).toString("base64");
-  const response = await fetch(
-    "https://api-m.sandbox.paypal.com/v1/oauth2/token",
-    {
-      method: "POST",
-      headers: {
-        Authorization: `Basic ${auth}`,
-        "Content-Type": "application/x-www-form-urlencoded",
-      },
-      body: "grant_type=client_credentials",
-    }
-  );
+  const response = await fetch("/api/paypal/token", {
+    method: "POST",
+  });
 
   if (!response.ok) {
     throw new Error("Failed to get PayPal access token");
@@ -56,47 +41,59 @@ export async function getPayPalAccessToken() {
 }
 
 export async function activateSubscription(subscriptionId: string) {
-  const accessToken = await getPayPalAccessToken();
-  const response = await fetch(
-    `https://api-m.sandbox.paypal.com/v1/billing/subscriptions/${subscriptionId}/activate`,
-    {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-        "Content-Type": "application/json",
-        Prefer: "return=representation",
-      },
-    }
-  );
+  const response = await fetch("/api/paypal/activate", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ subscriptionId }),
+  });
 
   if (!response.ok) {
-    throw new Error("Failed to activate subscription");
+    const error = await response.json();
+    throw new Error(error.message || "Failed to activate subscription");
   }
 
   return response.json();
 }
 
 export async function cancelSubscription(subscriptionId: string) {
-  const accessToken = await getPayPalAccessToken();
-  const response = await fetch(
-    `https://api-m.sandbox.paypal.com/v1/billing/subscriptions/${subscriptionId}/cancel`,
-    {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-        "Content-Type": "application/json",
-        Prefer: "return=representation",
-      },
-      body: JSON.stringify({
-        reason: "Requested by customer",
-      }),
-    }
-  );
+  const response = await fetch("/api/paypal/cancel", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ subscriptionId }),
+  });
 
   if (!response.ok) {
-    const errorData = await response.json();
-    throw new Error(errorData.message || "Failed to cancel subscription");
+    const error = await response.json();
+    throw new Error(error.message || "Failed to cancel subscription");
   }
 
-  return true;
+  return response.json();
 }
+
+export const SUBSCRIPTION_PLANS = {
+  FREE: {
+    name: "Free",
+    price: 0,
+    planId: null,
+    documentsLimit: 3,
+    questionsLimit: 20,
+  },
+  PRO: {
+    name: "Professional",
+    price: 29.99,
+    planId: process.env.NEXT_PUBLIC_PAYPAL_PRO_PLAN_ID,
+    documentsLimit: 25,
+    questionsLimit: 100,
+  },
+  ENTERPRISE: {
+    name: "Enterprise",
+    price: 99.99,
+    planId: process.env.NEXT_PUBLIC_PAYPAL_ENTERPRISE_PLAN_ID,
+    documentsLimit: -1, // unlimited
+    questionsLimit: -1, // unlimited
+  },
+};

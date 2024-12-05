@@ -19,6 +19,8 @@ import NavBar from "@/components/NavBar";
 import { useAuth } from "@/lib/useAuth";
 import { toast } from "@/hooks/use-toast";
 import { motion } from "framer-motion";
+import { PayPalButtons } from "@paypal/react-paypal-js";
+import { PricingTable } from "@/components/PricingTable";
 
 const floatingDocsAnimation = {
   hidden: { opacity: 0, y: 20 },
@@ -360,119 +362,7 @@ export default function LandingPage() {
                 </p>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-                {[
-                  {
-                    name: "Free",
-                    price: "$0",
-                    features: [
-                      "1 document per month",
-                      "3 AI questions per document",
-                      "Basic document analysis",
-                      "Community support",
-                    ],
-                    cta: "Start Free",
-                    popular: false,
-                  },
-                  {
-                    name: "Professional",
-                    price: "$29",
-                    period: "/month",
-                    features: [
-                      "10 documents per month",
-                      "Unlimited AI questions",
-                      "Advanced document analysis",
-                      "Priority support",
-                      "Custom document upload",
-                      "Export capabilities",
-                    ],
-                    cta: "Get Started",
-                    popular: true,
-                  },
-                  {
-                    name: "Enterprise",
-                    price: "Custom",
-                    features: [
-                      "Unlimited documents",
-                      "Unlimited AI questions",
-                      "White-label solution",
-                      "Dedicated support",
-                      "API access",
-                      "Custom integrations",
-                    ],
-                    cta: "Contact Sales",
-                    popular: false,
-                  },
-                ].map((plan, index) => (
-                  <motion.div
-                    key={index}
-                    initial={{ opacity: 0, y: 20 }}
-                    whileInView={{ opacity: 1, y: 0 }}
-                    transition={{ delay: index * 0.1 }}
-                    viewport={{ once: true }}
-                    className="relative group"
-                  >
-                    <div
-                      className={`absolute inset-0 rounded-xl blur-xl transition-opacity duration-300 ${
-                        plan.popular
-                          ? "bg-gradient-to-r from-blue-500/20 to-indigo-500/20 opacity-100"
-                          : "bg-white/5 opacity-0 group-hover:opacity-100"
-                      }`}
-                    />
-                    <div
-                      className={`relative p-8 rounded-xl backdrop-blur-sm ${
-                        plan.popular
-                          ? "border-2 border-blue-500/50 bg-white/10"
-                          : "border border-white/10 bg-white/5"
-                      }`}
-                    >
-                      {plan.popular && (
-                        <div className="absolute -top-4 left-1/2 -translate-x-1/2">
-                          <span className="px-4 py-1 rounded-full text-sm font-medium bg-gradient-to-r from-blue-500 to-indigo-500">
-                            Most Popular
-                          </span>
-                        </div>
-                      )}
-
-                      <div className="text-center mb-8">
-                        <h3 className="text-xl font-semibold mb-4">
-                          {plan.name}
-                        </h3>
-                        <div className="flex items-baseline justify-center gap-x-2">
-                          <span className="text-4xl font-bold">
-                            {plan.price}
-                          </span>
-                          {plan.period && (
-                            <span className="text-gray-400">{plan.period}</span>
-                          )}
-                        </div>
-                      </div>
-
-                      <ul className="space-y-4 mb-8">
-                        {plan.features.map((feature, i) => (
-                          <li
-                            key={i}
-                            className="flex items-center text-gray-300"
-                          >
-                            <CheckCircle2 className="w-5 h-5 text-blue-400 mr-3 flex-shrink-0" />
-                            <span>{feature}</span>
-                          </li>
-                        ))}
-                      </ul>
-
-                      <button
-                        className={`w-full py-3 px-6 rounded-lg font-medium transition-all duration-200 ${
-                          plan.popular
-                            ? "bg-gradient-to-r from-blue-500 to-indigo-500 hover:opacity-90"
-                            : "bg-white/10 hover:bg-white/20"
-                        }`}
-                      >
-                        {plan.cta}
-                      </button>
-                    </div>
-                  </motion.div>
-                ))}
-              </div>
+              <PricingTable />
             </div>
           </section>
 
