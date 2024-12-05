@@ -29,7 +29,7 @@ interface PricingPlan {
 
 const pricingPlans: PricingPlan[] = [
   {
-    name: "Free",
+    name: "FREE",
     price: "$0",
     description: "Perfect for trying out VirtuHelpX",
     features: [
@@ -43,7 +43,7 @@ const pricingPlans: PricingPlan[] = [
     icon: <Brain className="h-6 w-6 text-blue-400" />,
   },
   {
-    name: "Basic",
+    name: "PROFESSIONAL",
     price: "$9.99",
     description: "Great for personal use",
     features: [
@@ -59,7 +59,7 @@ const pricingPlans: PricingPlan[] = [
     popular: true,
   },
   {
-    name: "Premium",
+    name: "ENTERPRISE",
     price: "$19.99",
     description: "Perfect for professionals",
     features: [
@@ -209,10 +209,10 @@ export default function SubscriptionPage() {
                 </ul>
 
                 <Button
-                  onClick={() => handleUpgrade(plan.name.toUpperCase())}
-                  disabled={loading || currentPlan === plan.name.toUpperCase()}
+                  onClick={() => handleUpgrade(plan.name)}
+                  disabled={loading || currentPlan === plan.name}
                   className={`w-full relative inline-flex items-center justify-center px-8 py-3 font-medium transition-all duration-200 rounded-lg ${
-                    currentPlan === plan.name.toUpperCase()
+                    currentPlan === plan.name
                       ? "bg-white/10 text-gray-400 cursor-not-allowed"
                       : "bg-gradient-to-r from-blue-500 to-indigo-500 text-white hover:from-blue-600 hover:to-indigo-600"
                   } focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-gray-900`}
@@ -222,7 +222,7 @@ export default function SubscriptionPage() {
                       <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2" />
                       Processing...
                     </div>
-                  ) : currentPlan === plan.name.toUpperCase() ? (
+                  ) : currentPlan === plan.name ? (
                     "Current Plan"
                   ) : (
                     <>

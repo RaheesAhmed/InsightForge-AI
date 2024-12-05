@@ -121,48 +121,129 @@ const Message = ({ role, content }: MessageProps) => {
                       style={vscDarkPlus as any}
                       language={match[1]}
                       PreTag="div"
+                      className="rounded-lg border border-white/10 bg-[#1E1E1E] p-4 my-4"
                     >
                       {String(children).replace(/\n$/, "")}
                     </SyntaxHighlighter>
                   ) : (
-                    <code {...props} className={className}>
+                    <code
+                      {...props}
+                      className={cn(
+                        "bg-[#1E1E1E] rounded px-1.5 py-0.5 text-blue-400",
+                        className
+                      )}
+                    >
                       {children}
                     </code>
                   );
                 },
                 p: ({ children }) => (
-                  <p className="text-gray-300">{children}</p>
+                  <p className="text-white/90 leading-7 mb-6">{children}</p>
                 ),
+                h1: ({ children }) => (
+                  <h1 className="text-3xl font-bold text-white/90 mb-6 leading-tight">
+                    {children}
+                  </h1>
+                ),
+                h2: ({ children }) => (
+                  <h2 className="text-2xl font-semibold text-white/90 mb-4 leading-tight">
+                    {children}
+                  </h2>
+                ),
+                h3: ({ children }) => (
+                  <h3 className="text-xl font-semibold text-white/90 mb-4 leading-tight">
+                    {children}
+                  </h3>
+                ),
+                ul: ({ children }) => (
+                  <ul className="pl-6 text-white/90 mb-6 space-y-2 list-none">
+                    {React.Children.map(children, (child) => {
+                      if (React.isValidElement(child)) {
+                        return React.cloneElement(child, {
+                          className:
+                            'relative pl-6 before:content-["•"] before:absolute before:left-0 before:text-blue-400',
+                        });
+                      }
+                      return child;
+                    })}
+                  </ul>
+                ),
+                ol: ({ children }) => (
+                  <ol className="pl-6 text-white/90 mb-6 space-y-2 list-none counter-reset-item">
+                    {React.Children.map(children, (child, index) => {
+                      if (React.isValidElement(child)) {
+                        return React.cloneElement(child, {
+                          className:
+                            "relative pl-6 before:absolute before:left-0 before:text-blue-400",
+                          "data-counter": index + 1,
+                        });
+                      }
+                      return child;
+                    })}
+                  </ol>
+                ),
+                li: ({ children, className, ...props }) => {
+                  if (props["data-counter"]) {
+                    return (
+                      <li className={cn("relative", className)} {...props}>
+                        <span className="absolute left-0 text-blue-400">
+                          {props["data-counter"]}.
+                        </span>
+                        {children}
+                      </li>
+                    );
+                  }
+                  return (
+                    <li className={cn("text-white/90", className)} {...props}>
+                      {children}
+                    </li>
+                  );
+                },
                 a: ({ node, ...props }) => (
                   <a
                     {...props}
-                    className="text-blue-400 hover:text-blue-300 transition-colors"
+                    className="text-blue-400 hover:text-blue-300 transition-colors border-b border-blue-400/30 hover:border-blue-400"
                     target="_blank"
                     rel="noopener noreferrer"
                   />
                 ),
                 table: ({ node, ...props }) => (
-                  <table
-                    {...props}
-                    className="border-collapse border border-white/10"
-                  />
+                  <div className="overflow-x-auto mb-6 rounded-lg border border-white/10">
+                    <table
+                      {...props}
+                      className="w-full border-collapse bg-[#1E1E1E]"
+                    />
+                  </div>
                 ),
                 th: ({ node, ...props }) => (
                   <th
                     {...props}
-                    className="border border-white/10 px-4 py-2 bg-white/5"
+                    className="border-b border-white/10 px-6 py-3 bg-white/5 text-white/90 font-semibold text-left"
                   />
                 ),
                 td: ({ node, ...props }) => (
-                  <td {...props} className="border border-white/10 px-4 py-2" />
+                  <td
+                    {...props}
+                    className="border-b border-white/10 px-6 py-3 text-white/90"
+                  />
                 ),
                 blockquote: ({ node, ...props }) => (
                   <blockquote
                     {...props}
-                    className="border-l-4 border-blue-500/50 pl-4 italic my-4 text-gray-300"
+                    className="border-l-4 border-blue-500 pl-6 my-6 italic text-white/80 bg-white/5 py-4 rounded-r"
                   />
                 ),
+                strong: ({ children }) => (
+                  <strong className="font-semibold text-white">
+                    {children}
+                  </strong>
+                ),
+                em: ({ children }) => (
+                  <em className="italic text-white/90">{children}</em>
+                ),
+                hr: () => <hr className="border-white/10 my-8" />,
               }}
+              className="prose prose-invert max-w-none"
             >
               {content}
             </ReactMarkdown>
@@ -318,16 +399,17 @@ const ChatPage = () => {
       try {
         const response = await fetch("/api/subscriptions/current");
         const data = await response.json();
+        console.log("Subscription data:", data);
 
-        if (response.ok && data.subscription) {
+        if (response.ok && data) {
           setSubscription({
-            plan: data.subscription.plan,
-            paypalId: data.subscription.paypalId,
-            questionsUsed: data.subscription.questionsUsed,
-            documentsUsed: data.subscription.documentsUsed,
-            questionsPerMonth: data.subscription.questionsLimit,
-            documentsPerMonth: data.subscription.documentsLimit,
-            validUntil: new Date(data.subscription.validUntil),
+            plan: data.plan,
+            paypalId: data.paypalId,
+            questionsUsed: data.questionsUsed,
+            documentsUsed: data.documentsUsed,
+            questionsPerMonth: data.questionsPerMonth || data.questionsLimit,
+            documentsPerMonth: data.documentsPerMonth || data.documentsLimit,
+            validUntil: new Date(data.validUntil),
           });
         }
       } catch (error) {
@@ -371,26 +453,49 @@ const ChatPage = () => {
     }
   }, [user]);
 
+  const canUploadFiles = subscription?.plan === "ENTERPRISE";
+  console.log("Current subscription:", subscription);
+  console.log("Can upload files:", canUploadFiles);
+
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) {
-      setIsUploading(true);
-      const formData = new FormData();
-      formData.append("file", file);
+    if (!file) return;
 
-      try {
-        const response = await fetch("/api/assistants/files/code-interpreter", {
-          method: "POST",
-          body: formData,
-        });
-        const result = await response.json();
-        setFileInfo(`${file.name} (ID: ${result.fileId})`);
-        setUserInput(`${file.name}`);
-      } catch (error) {
-        console.error("Error uploading file:", error);
-      }
-      setIsUploading(false);
+    if (!canUploadFiles) {
+      showError(
+        "Please upgrade to Professional or Enterprise plan to upload files"
+      );
+      setShowPaymentModal(true);
+      return;
     }
+
+    setIsUploading(true);
+    const formData = new FormData();
+    formData.append("file", file);
+
+    try {
+      const response = await fetch("/api/assistants/files/code-interpreter", {
+        method: "POST",
+        body: formData,
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to upload file");
+      }
+
+      const result = await response.json();
+      setFileInfo(`${file.name} (ID: ${result.fileId})`);
+      setUserInput(`${file.name}`);
+
+      toast({
+        title: "Success",
+        description: "File uploaded successfully",
+      });
+    } catch (error) {
+      console.error("Error uploading file:", error);
+      showError("Failed to upload file. Please try again.");
+    }
+    setIsUploading(false);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -665,38 +770,44 @@ const ChatPage = () => {
             className="stretch mx-2 flex flex-row gap-3 last:mb-2 md:mx-4 md:last:mb-6 lg:mx-auto lg:max-w-2xl xl:max-w-3xl"
           >
             <div className="relative flex h-full flex-1 items-center">
-              <Button
-                type="button"
-                size="icon"
-                variant="ghost"
-                className="absolute left-3 bg-gradient-to-r from-blue-500 to-indigo-500 text-white hover:opacity-90"
-                onClick={() => document.getElementById("file-upload")?.click()}
-                disabled={isUploading}
-              >
-                {isUploading ? (
-                  <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
-                ) : (
-                  <Paperclip className="h-4 w-4" />
-                )}
-              </Button>
+              {canUploadFiles && (
+                <Button
+                  type="button"
+                  size="icon"
+                  variant="ghost"
+                  className="absolute left-3 z-10 h-8 w-8 bg-gradient-to-r from-blue-500 to-indigo-500 text-white hover:opacity-90 opacity-100 cursor-pointer rounded-lg flex items-center justify-center"
+                  onClick={() =>
+                    document.getElementById("file-upload")?.click()
+                  }
+                  disabled={false}
+                >
+                  {isUploading ? (
+                    <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                  ) : (
+                    <Paperclip className="h-4 w-4 text-white" />
+                  )}
+                </Button>
+              )}
               <Textarea
                 value={userInput}
                 onChange={(e) => {
                   setUserInput(e.target.value);
                   autoResizeTextArea(e.target);
                 }}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" && !e.shiftKey) {
-                    e.preventDefault();
-                    handleSubmit(e);
-                  }
-                }}
-                placeholder="Message VirtuHelpX..."
-                className="w-full resize-none bg-white/5 backdrop-blur-sm text-white px-3 pt-8 py-4 pl-16 pr-12 rounded-xl border border-white/10 shadow-[0_0_15px_rgba(0,0,0,0.1)]"
+                onKeyDown={handleKeyPress}
+                placeholder={
+                  canUploadFiles
+                    ? "Message VirtuHelpX or upload a file..."
+                    : "Message VirtuHelpX..."
+                }
+                className={cn(
+                  "w-full resize-none bg-white/5 backdrop-blur-sm text-white px-4 py-3 rounded-xl border border-white/10 shadow-[0_0_15px_rgba(0,0,0,0.1)]",
+                  canUploadFiles ? "pl-12" : "pl-4"
+                )}
                 style={{
-                  height: "inherit",
+                  height: "48px",
                   maxHeight: "200px",
-                  minHeight: "52px",
+                  minHeight: "48px",
                 }}
               />
               <Button
@@ -704,25 +815,28 @@ const ChatPage = () => {
                 size="icon"
                 variant="ghost"
                 className={cn(
-                  "absolute right-3 bg-gradient-to-r from-blue-500 to-indigo-500 text-white hover:opacity-90",
+                  "absolute right-2 z-10 h-8 w-8 bg-gradient-to-r from-blue-500 to-indigo-500 text-white hover:opacity-90 rounded-lg flex items-center justify-center",
                   !userInput.trim() &&
                     !fileInfo &&
                     "opacity-50 cursor-not-allowed"
                 )}
                 disabled={isUploading || (!userInput.trim() && !fileInfo)}
               >
-                <Send className="h-6 w-6" />
+                <Send className="h-4 w-4 text-white" />
               </Button>
             </div>
           </form>
         </div>
       </div>
-      <input
-        type="file"
-        id="file-upload"
-        className="hidden"
-        onChange={handleFileChange}
-      />
+      {canUploadFiles && (
+        <input
+          type="file"
+          id="file-upload"
+          className="hidden"
+          onChange={handleFileChange}
+          accept=".txt,.pdf,.doc,.docx,.csv,.json,.xml"
+        />
+      )}
       <PaymentModal
         isOpen={showPaymentModal}
         onClose={() => setShowPaymentModal(false)}
