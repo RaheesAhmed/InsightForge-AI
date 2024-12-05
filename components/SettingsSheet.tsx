@@ -1,176 +1,187 @@
 "use client";
 
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import {
   Sheet,
   SheetContent,
   SheetHeader,
   SheetTitle,
+  SheetTrigger,
 } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
-import { PayPalButtons } from "@paypal/react-paypal-js";
-import { toast } from "@/hooks/use-toast";
-import { activateSubscription, cancelSubscription } from "@/lib/paypal";
-import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { Badge } from "@/components/ui/badge";
+import { Settings, ArrowRight } from "lucide-react";
+import { useAuth } from "@/lib/useAuth";
 
-interface SettingsSheetProps {
-  isOpen: boolean;
-  onClose: () => void;
-  subscription: {
-    plan: string;
-    questionsUsed: number;
-    documentsUsed: number;
-    questionsPerMonth: number;
-    documentsPerMonth: number;
-    validUntil: Date;
-  } | null;
+interface Subscription {
+  plan: string;
+  documentsPerMonth: number;
+  questionsPerMonth: number;
+  questionsUsed: number;
+  validUntil: Date;
+  status: string;
 }
 
-export function SettingsSheet({
-  isOpen,
-  onClose,
-  subscription,
-}: SettingsSheetProps) {
+export function SettingsSheet() {
   const router = useRouter();
-  const [loading, setLoading] = useState(false);
+  const { user, logout } = useAuth();
+  const [subscription, setSubscription] = useState<Subscription | null>(null);
+  const [isOpen, setIsOpen] = useState(false);
 
-  const handleCancelSubscription = async () => {
-    try {
-      setLoading(true);
-      await cancelSubscription(subscription?.plan || "");
+  useEffect(() => {
+    const fetchSubscription = async () => {
+      try {
+        const response = await fetch("/api/subscriptions/current");
+        if (response.ok) {
+          const data = await response.json();
+          setSubscription(data);
+        }
+      } catch (error) {
+        console.error("Error fetching subscription:", error);
+      }
+    };
 
-      toast({
-        title: "Subscription cancelled",
-        description: "Your subscription has been cancelled successfully",
-      });
-
-      router.refresh();
-      onClose();
-    } catch (error) {
-      console.error("Error cancelling subscription:", error);
-      toast({
-        title: "Error cancelling subscription",
-        description: "Please try again later",
-        variant: "destructive",
-      });
-    } finally {
-      setLoading(false);
+    if (isOpen) {
+      fetchSubscription();
     }
+  }, [isOpen]);
+
+  const getProgressPercentage = (used: number, total: number) => {
+    return Math.min((used / total) * 100, 100);
   };
 
-  const handleUpgradeSubscription = async (subscriptionId: string) => {
-    try {
-      setLoading(true);
-      await activateSubscription(subscriptionId);
-
-      toast({
-        title: "Subscription upgraded",
-        description: "Your subscription has been upgraded successfully",
-      });
-
-      router.refresh();
-      onClose();
-    } catch (error) {
-      console.error("Error upgrading subscription:", error);
-      toast({
-        title: "Error upgrading subscription",
-        description: "Please try again later",
-        variant: "destructive",
-      });
-    } finally {
-      setLoading(false);
-    }
+  const formatDate = (date: Date) => {
+    return new Intl.DateTimeFormat("en-US", {
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+    }).format(new Date(date));
   };
 
   return (
-    <Sheet open={isOpen} onOpenChange={onClose}>
-      <SheetContent>
+    <Sheet open={isOpen} onOpenChange={setIsOpen}>
+      <SheetTrigger asChild>
+        <Button variant="ghost" size="icon" className="h-9 w-9 rounded-full">
+          <Settings className="h-5 w-5" />
+        </Button>
+      </SheetTrigger>
+      <SheetContent className="w-[400px] bg-[#0A0F1E] border-l border-white/10">
         <SheetHeader>
-          <SheetTitle>Settings</SheetTitle>
+          <SheetTitle className="text-xl font-bold text-white">
+            Settings
+          </SheetTitle>
         </SheetHeader>
-
-        <div className="py-6">
-          <h3 className="font-medium mb-4">Subscription Details</h3>
-          {subscription ? (
-            <div className="space-y-4">
-              <div>
-                <p className="text-sm text-muted-foreground">Current Plan</p>
-                <p className="font-medium">{subscription.plan}</p>
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground">Usage</p>
-                <ul className="list-disc list-inside space-y-1">
-                  <li>
-                    Documents: {subscription.documentsUsed}/
-                    {subscription.documentsPerMonth === -1
-                      ? "∞"
-                      : subscription.documentsPerMonth}
-                  </li>
-                  <li>
-                    Questions: {subscription.questionsUsed}/
-                    {subscription.questionsPerMonth === -1
-                      ? "∞"
-                      : subscription.questionsPerMonth}
-                  </li>
-                </ul>
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground">Valid Until</p>
-                <p className="font-medium">
-                  {new Date(subscription.validUntil).toLocaleDateString()}
-                </p>
-              </div>
-
-              {subscription.plan !== "Free" && (
-                <div className="pt-4">
-                  <Button
-                    variant="destructive"
-                    onClick={handleCancelSubscription}
-                    disabled={loading}
-                    className="w-full"
-                  >
-                    Cancel Subscription
-                  </Button>
+        <div className="mt-6 space-y-6">
+          {/* User Profile */}
+          <div className="space-y-2">
+            <h3 className="text-lg font-semibold text-white">Profile</h3>
+            <div className="rounded-lg border border-white/10 bg-white/5 p-4">
+              <div className="flex items-center space-x-4">
+                <div>
+                  <p className="font-medium text-white">
+                    {user?.name || user?.email}
+                  </p>
+                  <p className="text-sm text-gray-400">{user?.email}</p>
                 </div>
-              )}
-
-              {subscription.plan === "Free" && (
-                <div className="pt-4 space-y-4">
-                  <h4 className="font-medium">Upgrade to Pro</h4>
-                  <PayPalButtons
-                    createSubscription={(data, actions) => {
-                      return actions.subscription.create({
-                        plan_id: process.env.NEXT_PUBLIC_PAYPAL_PRO_PLAN_ID!,
-                      });
-                    }}
-                    onApprove={async (data, actions) => {
-                      if (data.subscriptionID) {
-                        await handleUpgradeSubscription(data.subscriptionID);
-                      }
-                      return Promise.resolve();
-                    }}
-                    onError={(err) => {
-                      console.error("PayPal Error:", err);
-                      toast({
-                        title: "Payment failed",
-                        description: "Please try again later",
-                        variant: "destructive",
-                      });
-                    }}
-                    style={{
-                      layout: "vertical",
-                      color: "blue",
-                    }}
-                    disabled={loading}
-                  />
-                </div>
-              )}
+              </div>
             </div>
-          ) : (
-            <p className="text-sm text-muted-foreground">
-              No active subscription found
-            </p>
-          )}
+          </div>
+
+          {/* Subscription Details */}
+          <div className="space-y-2">
+            <h3 className="text-lg font-semibold text-white">
+              Subscription Details
+            </h3>
+            {!subscription ? (
+              <div className="rounded-lg border border-white/10 bg-white/5 p-4 space-y-4">
+                <p className="text-gray-400">
+                  No active subscription found. Upgrade to unlock premium
+                  features.
+                </p>
+                <Button
+                  onClick={() => router.push("/subscription")}
+                  className="w-full relative inline-flex items-center justify-center px-4 py-2 font-medium text-white transition-all duration-200 bg-gradient-to-r from-blue-500 to-indigo-500 rounded-lg hover:from-blue-600 hover:to-indigo-600"
+                >
+                  <span>Upgrade Now</span>
+                  <ArrowRight className="ml-2 h-4 w-4" />
+                </Button>
+              </div>
+            ) : (
+              <div className="rounded-lg border border-white/10 bg-white/5 p-4 space-y-4">
+                <div className="flex items-center justify-between">
+                  <h4 className="font-medium text-white">
+                    {subscription.plan} Plan
+                  </h4>
+                  <Badge
+                    variant={
+                      subscription.status === "ACTIVE"
+                        ? "default"
+                        : "destructive"
+                    }
+                    className="bg-gradient-to-r from-blue-500 to-indigo-500 text-white"
+                  >
+                    {subscription.status}
+                  </Badge>
+                </div>
+
+                {/* Questions Usage */}
+                <div>
+                  <div className="flex justify-between text-sm text-gray-400 mb-2">
+                    <span>Questions Used</span>
+                    <span>
+                      {subscription.questionsUsed} /{" "}
+                      {subscription.questionsPerMonth}
+                    </span>
+                  </div>
+                  <div className="h-2 bg-gray-700 rounded-full">
+                    <div
+                      className="h-full bg-gradient-to-r from-blue-500 to-indigo-500 rounded-full"
+                      style={{
+                        width: `${getProgressPercentage(
+                          subscription.questionsUsed,
+                          subscription.questionsPerMonth
+                        )}%`,
+                      }}
+                    />
+                  </div>
+                </div>
+
+                {/* Documents Limit */}
+                <div className="flex justify-between text-sm text-gray-400">
+                  <span>Documents Limit</span>
+                  <span>{subscription.documentsPerMonth} per month</span>
+                </div>
+
+                {/* Valid Until */}
+                <div className="pt-2 border-t border-white/10">
+                  <p className="text-sm text-gray-400">
+                    Valid until: {formatDate(subscription.validUntil)}
+                  </p>
+                </div>
+
+                {/* Upgrade Button */}
+                {subscription.plan !== "PREMIUM" && (
+                  <Button
+                    onClick={() => router.push("/subscription")}
+                    className="w-full relative inline-flex items-center justify-center px-4 py-2 font-medium text-white transition-all duration-200 bg-gradient-to-r from-blue-500 to-indigo-500 rounded-lg hover:from-blue-600 hover:to-indigo-600"
+                  >
+                    <span>Upgrade Plan</span>
+                    <ArrowRight className="ml-2 h-4 w-4" />
+                  </Button>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Logout Button */}
+          <Button
+            onClick={logout}
+            variant="destructive"
+            className="w-full relative inline-flex items-center justify-center px-4 py-2 font-medium"
+          >
+            Logout
+          </Button>
         </div>
       </SheetContent>
     </Sheet>

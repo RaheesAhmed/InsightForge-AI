@@ -1,33 +1,38 @@
 "use client";
 
-import * as React from "react";
-import { Button } from "@/components/ui/button";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { Separator } from "@/components/ui/separator";
+import { useState } from "react";
 import { cn } from "@/lib/utils";
+import Link from "next/link";
 import {
-  Plus,
-  FileText,
+  MessageSquare,
   Trash2,
   Settings,
-  Building2,
   ChevronLeft,
   ChevronRight,
-  MessageSquare,
+  PanelLeft,
+  PanelRight,
+  Plus,
   Brain,
-  CircleChevronRight,
-  PanelRightOpen,
-  ArrowBigRight,
 } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { useState } from "react";
-import { SettingsSheet } from "./SettingsSheet";
+import { SettingsSheet } from "@/components/SettingsSheet";
 import { useAuth } from "@/lib/useAuth";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 type MessageProps = {
   role: "user" | "assistant" | "code";
@@ -47,6 +52,7 @@ interface ChatSideBarProps {
   onNewChat: () => void;
   onSelectChat: (index: number) => void;
   onClearAllChats: () => void;
+  subscription: any;
 }
 
 export function ChatSideBar({
@@ -55,232 +61,181 @@ export function ChatSideBar({
   onNewChat,
   onSelectChat,
   onClearAllChats,
+  subscription,
 }: ChatSideBarProps) {
   const [isCollapsed, setIsCollapsed] = useState(false);
-  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const { user } = useAuth();
-
-  const userDisplayName = user?.name || user?.email?.split("@")[0] || "User";
-
-  const getSessionTitle = (session: SessionProps) => {
-    if (session.title) return session.title;
-    return "New Chat";
-  };
-
-  const formatDate = (timestamp: number) => {
-    const date = new Date(timestamp);
-    const today = new Date();
-    const yesterday = new Date(today);
-    yesterday.setDate(yesterday.getDate() - 1);
-
-    if (date.toDateString() === today.toDateString()) {
-      return "Today";
-    } else if (date.toDateString() === yesterday.toDateString()) {
-      return "Yesterday";
-    } else {
-      return date.toLocaleDateString("en-US", {
-        month: "short",
-        day: "numeric",
-      });
-    }
-  };
-
-  // Group sessions by date
-  const groupedSessions = React.useMemo(() => {
-    const groups: { [key: string]: SessionProps[] } = {};
-    sessions.forEach((session) => {
-      const dateKey = formatDate(session.createdAt);
-      if (!groups[dateKey]) {
-        groups[dateKey] = [];
-      }
-      groups[dateKey].push(session);
-    });
-    return groups;
-  }, [sessions]);
-
-  // Modify the New Chat button click handler
-  const handleNewChat = () => {
-    onNewChat(); // This will directly start a new chat
-  };
 
   return (
     <TooltipProvider>
       <div
-        data-sidebar
         className={cn(
-          "fixed md:relative z-20 flex h-full flex-col bg-[#0A0F1E]/50 backdrop-blur-xl border-r border-white/10 transition-all duration-300",
-          "transform -translate-x-full md:translate-x-0",
-          isCollapsed ? "w-[60px]" : "w-[280px]"
+          "relative h-full border-r border-white/10 bg-[#0A0F1E] transition-all duration-300",
+          isCollapsed ? "w-[60px]" : "w-64"
         )}
       >
-        {/* Logo Section */}
-        <div className="flex items-center p-3 sm:p-4 border-b border-white/10 bg-white/5 backdrop-blur-sm justify-between">
-          <div className="flex items-center space-x-2">
-            <Brain className="h-8 w-8 text-blue-400" />
+        {/* Logo */}
+        <div className="flex-shrink-0 flex items-center px-3 pt-4 mb-4">
+          <Link href="/" className="flex items-center space-x-2 group">
+            <div className="relative">
+              <div className="absolute -inset-0.5 bg-gradient-to-r from-blue-500 to-indigo-500 rounded-lg blur opacity-60 group-hover:opacity-100 transition duration-300"></div>
+              <Brain className="relative h-8 w-8 text-blue-400" />
+            </div>
             {!isCollapsed && (
-              <span className="text-xl font-bold text-white">
-                <span className="bg-gradient-to-r from-blue-400 to-indigo-400 bg-clip-text text-transparent font-bold text-2xl">
-                  Virtu HelpX
+              <span className="text-xl font-bold">
+                <span className="bg-gradient-to-r from-blue-400 to-indigo-400 bg-clip-text text-transparent">
+                  Virtu
                 </span>
+                <span className="text-white">HelpX</span>
               </span>
             )}
-          </div>
+          </Link>
+        </div>
+
+        {/* Header with New Chat and Collapse buttons */}
+        <div className="flex items-center justify-between px-3 pb-4">
           <Button
             variant="ghost"
-            size="sm"
-            className="p-0 h-8 w-8 flex items-right justify-right hover:bg-white/10"
+            className={cn(
+              "flex items-center justify-center bg-gradient-to-r from-blue-500 to-indigo-500 hover:from-blue-600 hover:to-indigo-600 text-white shadow-lg shadow-blue-500/20 border border-white/10 transition-all duration-200",
+              isCollapsed ? "w-9 h-9" : "w-[calc(100%-28px)] px-4 py-2",
+              "rounded-lg"
+            )}
+            onClick={onNewChat}
+          >
+            <Plus className="h-4 w-4" />
+            {!isCollapsed && <span className="ml-2 font-medium">New Chat</span>}
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-9 w-9 text-gray-400 hover:text-white hover:bg-white/10 transition-colors"
             onClick={() => setIsCollapsed(!isCollapsed)}
           >
             {isCollapsed ? (
-              <ChevronRight className="h-8 w-8 ml-4 font-bold rounded bg-gradient-to-r from-blue-500 to-indigo-500 text-white" />
+              <PanelRight className="h-4 w-4" />
             ) : (
-              <ChevronLeft className="h-4 w-4 text-gray-300" />
+              <PanelLeft className="h-4 w-4" />
             )}
           </Button>
         </div>
 
-        {/* Add User Info Section */}
-        {!isCollapsed && (
-          <div className="px-4 py-2 border-b border-white/10 bg-white/5">
-            <div className="text-sm font-medium text-white">
-              {userDisplayName}
-            </div>
-            {user?.email && (
-              <div className="text-xs text-gray-400 truncate">{user.email}</div>
-            )}
-          </div>
-        )}
-
-        {/* Update the New Chat Button */}
-        <div className="flex items-center p-4">
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                onClick={handleNewChat}
+        {/* Chat list */}
+        <div className="flex-1 overflow-auto">
+          <div className="px-2">
+            {sessions.map((session, index) => (
+              <button
+                key={index}
                 className={cn(
-                  "justify-start gap-2 bg-gradient-to-r from-blue-500 to-indigo-500 text-white hover:opacity-90 transition-all duration-200",
-                  isCollapsed ? "w-10 px-2" : "w-full"
+                  "flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left text-sm transition-all duration-200",
+                  "hover:bg-white/10",
+                  activeSessionIndex === index
+                    ? "bg-white/10 text-white"
+                    : "text-gray-400 hover:text-white"
                 )}
+                onClick={() => onSelectChat(index)}
               >
-                <Plus className="h-5 w-5" />
-                {!isCollapsed && "New Chat"}
-              </Button>
-            </TooltipTrigger>
-            {isCollapsed && (
-              <TooltipContent side="right">New Chat</TooltipContent>
-            )}
-          </Tooltip>
+                <MessageSquare className="h-4 w-4 shrink-0" />
+                {!isCollapsed && (
+                  <span className="line-clamp-1 flex-1">
+                    {session.messages[0]?.content || "New Chat"}
+                  </span>
+                )}
+              </button>
+            ))}
+          </div>
         </div>
 
-        {/* Chat List */}
-        <ScrollArea className="flex-1 px-2">
-          {!isCollapsed &&
-            Object.entries(groupedSessions).map(([date, dateSessions]) => (
-              <div key={date}>
-                <div className="px-3 py-2 text-xs text-gray-400 font-medium">
-                  {date}
-                </div>
-                {dateSessions.map((session, index) => {
-                  const actualIndex = sessions.findIndex(
-                    (s) => s.id === session.id
-                  );
-                  return (
-                    <Button
-                      key={session.id}
-                      onClick={() => onSelectChat(actualIndex)}
-                      variant="ghost"
-                      className={cn(
-                        "mb-1 w-full justify-start gap-2 rounded-lg py-2 text-left transition-all duration-200",
-                        actualIndex === activeSessionIndex
-                          ? "bg-white/10 text-blue-400 border border-white/10 backdrop-blur-sm"
-                          : "text-gray-300 hover:bg-white/5 hover:text-white"
-                      )}
-                    >
-                      <MessageSquare className="h-4 w-4 shrink-0" />
-                      <span className="truncate text-sm">
-                        {getSessionTitle(session)}
-                      </span>
-                    </Button>
-                  );
-                })}
-              </div>
-            ))}
-          {isCollapsed &&
-            sessions.map((session, index) => (
-              <Tooltip key={session.id}>
-                <TooltipTrigger asChild>
-                  <Button
-                    onClick={() => onSelectChat(index)}
-                    variant="ghost"
-                    className={cn(
-                      "mb-1 w-10 p-0 justify-center rounded-lg transition-all duration-200",
-                      index === activeSessionIndex
-                        ? "bg-white/10 text-blue-400 border border-white/10 backdrop-blur-sm"
-                        : "text-gray-300 hover:bg-white/5 hover:text-white"
-                    )}
-                  >
-                    <MessageSquare className="h-4 w-4" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent side="right">
-                  {getSessionTitle(session)}
-                </TooltipContent>
-              </Tooltip>
-            ))}
-        </ScrollArea>
-
-        {/* Bottom Actions */}
-        <Separator className="bg-white/10" />
-        <div className="p-4 space-y-2">
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                onClick={onClearAllChats}
-                variant="ghost"
-                className={cn(
-                  "justify-start gap-2 text-gray-300 hover:bg-white/5 hover:text-white transition-all duration-200",
-                  isCollapsed ? "w-10 px-2" : "w-full"
-                )}
+        {/* Bottom buttons */}
+        <div
+          className={cn(
+            "absolute bottom-4 left-0 right-0 px-3",
+            "flex items-center",
+            isCollapsed ? "flex-col gap-3 justify-center" : "justify-between"
+          )}
+        >
+          <div
+            className={cn(
+              "flex items-center",
+              isCollapsed ? "flex-col gap-3" : "gap-2"
+            )}
+          >
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className={cn(
+                    "h-9 w-9 rounded-lg transition-all duration-200",
+                    "bg-gradient-to-r from-blue-500/10 to-indigo-500/10 hover:from-blue-500 hover:to-indigo-500",
+                    "text-blue-400 hover:text-white border border-blue-500/20"
+                  )}
+                >
+                  <Settings className="h-5 w-5" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent
+                side="right"
+                className="bg-[#0A0F1E] border border-white/10 text-gray-200"
               >
-                <Trash2 className="h-4 w-4" />
-                {!isCollapsed && "Clear History"}
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent side="right">Clear all chats</TooltipContent>
-          </Tooltip>
-
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant="ghost"
-                className={cn(
-                  "justify-start gap-2 text-gray-300 hover:bg-white/5 hover:text-white transition-all duration-200",
-                  isCollapsed ? "w-10 px-2" : "w-full"
-                )}
-                onClick={() => setIsSettingsOpen(true)}
+                Settings
+              </TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className={cn(
+                    "h-9 w-9 rounded-lg transition-all duration-200",
+                    "bg-gradient-to-r from-blue-500/10 to-indigo-500/10 hover:from-blue-500 hover:to-indigo-500",
+                    "text-blue-400 hover:text-white border border-blue-500/20"
+                  )}
+                  onClick={() => setIsDeleteModalOpen(true)}
+                >
+                  <Trash2 className="h-5 w-5" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent
+                side="right"
+                className="bg-[#0A0F1E] border border-white/10 text-gray-200"
               >
-                <Settings className="h-4 w-4" />
-                {!isCollapsed && "Settings"}
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent side="right">
-              Configure your preferences
-            </TooltipContent>
-          </Tooltip>
+                Clear all chats
+              </TooltipContent>
+            </Tooltip>
+          </div>
         </div>
       </div>
 
-      {/* Mobile Overlay */}
-      <div
-        className="fixed inset-0 bg-black/20 backdrop-blur-sm z-10 md:hidden transition-opacity duration-300 opacity-0 pointer-events-none"
-        onClick={() => {
-          const sidebar = document.querySelector("[data-sidebar]");
-          sidebar?.classList.remove("translate-x-0");
-          sidebar?.classList.add("-translate-x-full");
-        }}
-      />
-
-      <SettingsSheet isOpen={isSettingsOpen} onOpenChange={setIsSettingsOpen} />
+      {/* Delete confirmation modal */}
+      <AlertDialog open={isDeleteModalOpen} onOpenChange={setIsDeleteModalOpen}>
+        <AlertDialogContent className="bg-[#0A0F1E] border border-white/10">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-xl font-semibold text-white">
+              Clear all chats
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-gray-400">
+              Are you sure you want to clear all chats? This action cannot be
+              undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="bg-white/5 text-gray-200 hover:bg-white/10 border border-white/10">
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                onClearAllChats();
+                setIsDeleteModalOpen(false);
+              }}
+              className="bg-gradient-to-r from-blue-500 to-indigo-500 text-white hover:from-blue-600 hover:to-indigo-600"
+            >
+              Clear All
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </TooltipProvider>
   );
 }

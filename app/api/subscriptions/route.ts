@@ -3,10 +3,8 @@ import { prisma } from "@/lib/prisma";
 import { verifyJWT } from "@/lib/jwt";
 import { cookies } from "next/headers";
 import {
-  createSubscriptionPlan,
   getPayPalAccessToken,
   cancelSubscription,
-  getSubscriptionDetails,
   updateSubscription,
 } from "@/lib/paypal";
 import { Plan, Status } from "@prisma/client";

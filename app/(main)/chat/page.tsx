@@ -19,6 +19,9 @@ import { PaymentModal } from "@/components/PaymentModal";
 import { toast } from "@/hooks/use-toast";
 import AssistantFunctionsCard from "@/components/AssistantFunctionsCard";
 import { Subscription, SubscriptionPlan } from "@/types/subscription";
+import { ArrowRight, Badge } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { SettingsSheet } from "@/components/SettingsSheet";
 
 type MessageProps = {
   role: "user" | "assistant" | "code";
@@ -37,6 +40,22 @@ interface CodeProps {
   inline: boolean;
   className: string;
   children: React.ReactNode;
+}
+
+interface ChatSideBarProps {
+  sessions: SessionProps[];
+  activeSessionIndex: number | null;
+  onNewChat: () => void;
+  onSelectChat: (index: number) => void;
+  onClearAllChats: () => void;
+  subscription: {
+    plan: string;
+    documentsPerMonth: number;
+    questionsPerMonth: number;
+    questionsUsed: number;
+    validUntil: Date;
+    status: string;
+  } | null;
 }
 
 const LoadingSpinner = () => {
@@ -88,25 +107,25 @@ const Message = ({ role, content }: MessageProps) => {
             <ReactMarkdown
               remarkPlugins={[remarkGfm]}
               components={{
-                code: function Code({
+                code: ({
                   node,
                   inline,
                   className,
                   children,
                   ...props
-                }: CodeProps & React.HTMLAttributes<HTMLElement>) {
+                }: CodeProps) => {
                   const match = /language-(\w+)/.exec(className || "");
                   return !inline && match ? (
                     <SyntaxHighlighter
+                      {...props}
                       style={vscDarkPlus as any}
                       language={match[1]}
                       PreTag="div"
-                      {...props}
                     >
                       {String(children).replace(/\n$/, "")}
                     </SyntaxHighlighter>
                   ) : (
-                    <code className={className} {...props}>
+                    <code {...props} className={className}>
                       {children}
                     </code>
                   );
@@ -159,6 +178,111 @@ const autoResizeTextArea = (element: HTMLTextAreaElement) => {
   element.style.height = `${Math.min(element.scrollHeight, 200)}px`; // Max height of 200px
 };
 
+const SubscriptionDetails = ({
+  subscription,
+}: {
+  subscription: SubscriptionData | null;
+}) => {
+  const router = useRouter();
+
+  const getProgressPercentage = (used: number, total: number) => {
+    return Math.min((used / total) * 100, 100);
+  };
+
+  const formatDate = (date: Date) => {
+    return new Intl.DateTimeFormat("en-US", {
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+    }).format(new Date(date));
+  };
+
+  if (!subscription) {
+    return (
+      <div className="rounded-lg border border-white/10 bg-[#0A0F1E]/50 p-6 backdrop-blur-sm">
+        <h3 className="text-xl font-semibold text-white mb-4">
+          No Active Subscription
+        </h3>
+        <p className="text-gray-400 mb-6">
+          Upgrade to unlock premium features and increase your usage limits.
+        </p>
+        <Button
+          onClick={() => router.push("/subscription")}
+          className="relative inline-flex items-center justify-center px-8 py-3 font-medium text-white transition-all duration-200 bg-gradient-to-r from-blue-500 to-indigo-500 rounded-lg hover:from-blue-600 hover:to-indigo-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-gray-900"
+        >
+          <span>Upgrade Now</span>
+          <ArrowRight className="ml-2 h-5 w-5" />
+        </Button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="rounded-lg border border-white/10 bg-[#0A0F1E]/50 p-6 backdrop-blur-sm">
+      <div className="flex items-center justify-between mb-6">
+        <h3 className="text-xl font-semibold text-white">
+          {subscription.plan} Plan
+        </h3>
+        <Badge
+          variant={subscription.status === "ACTIVE" ? "default" : "destructive"}
+          className="bg-gradient-to-r from-blue-500 to-indigo-500"
+        >
+          {subscription.status}
+        </Badge>
+      </div>
+
+      <div className="space-y-6">
+        {/* Questions Usage */}
+        <div>
+          <div className="flex justify-between text-sm text-gray-400 mb-2">
+            <span>Questions Used</span>
+            <span>
+              {subscription.questionsUsed} / {subscription.questionsPerMonth}
+            </span>
+          </div>
+          <div className="h-2 bg-gray-700 rounded-full">
+            <div
+              className="h-full bg-gradient-to-r from-blue-500 to-indigo-500 rounded-full"
+              style={{
+                width: `${getProgressPercentage(
+                  subscription.questionsUsed,
+                  subscription.questionsPerMonth
+                )}%`,
+              }}
+            />
+          </div>
+        </div>
+
+        {/* Documents Usage */}
+        <div>
+          <div className="flex justify-between text-sm text-gray-400 mb-2">
+            <span>Documents Limit</span>
+            <span>{subscription.documentsPerMonth} per month</span>
+          </div>
+        </div>
+
+        {/* Valid Until */}
+        <div className="pt-4 border-t border-white/10">
+          <p className="text-sm text-gray-400">
+            Valid until: {formatDate(subscription.validUntil)}
+          </p>
+        </div>
+
+        {/* Upgrade Button */}
+        {subscription.plan !== "ENTERPRISE" && (
+          <Button
+            onClick={() => router.push("/subscription")}
+            className="w-full relative inline-flex items-center justify-center px-8 py-3 font-medium text-white transition-all duration-200 bg-gradient-to-r from-blue-500 to-indigo-500 rounded-lg hover:from-blue-600 hover:to-indigo-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-gray-900"
+          >
+            <span>Upgrade Plan</span>
+            <ArrowRight className="ml-2 h-5 w-5" />
+          </Button>
+        )}
+      </div>
+    </div>
+  );
+};
+
 const ChatPage = () => {
   const [messages, setMessages] = React.useState<MessageProps[]>([]);
   const [sessions, setSessions] = React.useState<SessionProps[]>(() => {
@@ -179,7 +303,42 @@ const ChatPage = () => {
   const messagesEndRef = React.useRef<HTMLDivElement>(null);
   const { user } = useAuth();
   const [showPaymentModal, setShowPaymentModal] = useState(false);
-  const [subscription, setSubscription] = useState<Subscription | null>(null);
+  const [subscription, setSubscription] = useState<{
+    plan: string;
+    paypalId?: string;
+    questionsUsed: number;
+    documentsUsed: number;
+    questionsPerMonth: number;
+    documentsPerMonth: number;
+    validUntil: Date;
+  } | null>(null);
+
+  useEffect(() => {
+    const fetchSubscription = async () => {
+      try {
+        const response = await fetch("/api/subscriptions/current");
+        const data = await response.json();
+
+        if (response.ok && data.subscription) {
+          setSubscription({
+            plan: data.subscription.plan,
+            paypalId: data.subscription.paypalId,
+            questionsUsed: data.subscription.questionsUsed,
+            documentsUsed: data.subscription.documentsUsed,
+            questionsPerMonth: data.subscription.questionsLimit,
+            documentsPerMonth: data.subscription.documentsLimit,
+            validUntil: new Date(data.subscription.validUntil),
+          });
+        }
+      } catch (error) {
+        console.error("Error fetching subscription:", error);
+      }
+    };
+
+    if (user) {
+      fetchSubscription();
+    }
+  }, [user]);
 
   React.useEffect(() => {
     const createThread = async () => {
@@ -474,6 +633,7 @@ const ChatPage = () => {
         onNewChat={handleNewChat}
         onSelectChat={handleSelectChat}
         onClearAllChats={handleClearAllChats}
+        subscription={subscription}
       />
       <div className="relative flex h-full w-full flex-1 flex-col">
         <div className="flex-1 overflow-hidden">

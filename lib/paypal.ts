@@ -74,3 +74,28 @@ export async function activateSubscription(subscriptionId: string) {
 
   return response.json();
 }
+
+export async function cancelSubscription(subscriptionId: string) {
+  const accessToken = await getPayPalAccessToken();
+  const response = await fetch(
+    `https://api-m.sandbox.paypal.com/v1/billing/subscriptions/${subscriptionId}/cancel`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json",
+        Prefer: "return=representation",
+      },
+      body: JSON.stringify({
+        reason: "Requested by customer",
+      }),
+    }
+  );
+
+  if (!response.ok) {
+    const errorData = await response.json();
+    throw new Error(errorData.message || "Failed to cancel subscription");
+  }
+
+  return true;
+}

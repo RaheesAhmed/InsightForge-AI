@@ -26,6 +26,7 @@ export async function GET(req: NextRequest) {
         questionsUsed: true,
         validUntil: true,
         status: true,
+        paypalId: true,
       },
     });
 

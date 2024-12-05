@@ -19,6 +19,8 @@ export async function GET() {
     // Verify the JWT token
     const payload = await verifyJWT(token);
     if (!payload || !payload.userId) {
+      // Clear invalid token
+      cookieStore.delete("auth-token");
       return NextResponse.json(
         { error: "Invalid or expired token" },
         { status: 401 }
@@ -47,6 +49,8 @@ export async function GET() {
     });
 
     if (!user) {
+      // Clear token if user not found
+      cookieStore.delete("auth-token");
       return NextResponse.json({ error: "User not found" }, { status: 401 });
     }
 
@@ -63,6 +67,7 @@ export async function GET() {
             questionsPerMonth: user.subscription.questionsLimit,
             questionsUsed: user.subscription.questionsUsed,
             validUntil: user.subscription.validUntil,
+            status: user.subscription.status,
           }
         : null,
     };
