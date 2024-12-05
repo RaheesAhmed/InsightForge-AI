@@ -1,9 +1,29 @@
 import { PayPalScriptProvider } from "@paypal/react-paypal-js";
+import fetch from "node-fetch";
 
 const PAYPAL_CLIENT_ID =
+  process.env.PAYPAL_CLIENT_ID ||
   "Acar9M8VnF7LN0pdMUVqIGdklZBLMcZpGat7ZkXy4WcBm3szNqWGKpwVZHYTekJDWsTIi07gLTYb_JRM";
 const PAYPAL_SECRET_KEY =
+  process.env.PAYPAL_SECRET_KEY ||
   "EPaLKruwlKgiDNJPzq6Qjuqb34aQLcitCv7zwiMpHfNClNvSDIv93x2D63_nSrL2Xy9jb6MDe4pUWPqQ";
+
+export interface PlanData {
+  name: string;
+  description: string;
+  price: number;
+  interval: "MONTH" | "YEAR";
+}
+
+export interface SubscriptionDetails {
+  id: string;
+  status: string;
+  plan_id: string;
+  billing_info: {
+    next_billing_time: string;
+    failed_payments_count: number;
+  };
+}
 
 export const paypalConfig = {
   clientId: PAYPAL_CLIENT_ID,
@@ -11,12 +31,77 @@ export const paypalConfig = {
   intent: "subscription",
 };
 
-export const createSubscriptionPlan = async (planData: {
-  name: string;
-  description: string;
-  price: number;
-  interval: "MONTH" | "YEAR";
-}) => {
+export const getPayPalAccessToken = async (): Promise<string> => {
+  try {
+    const auth = Buffer.from(
+      `${PAYPAL_CLIENT_ID}:${PAYPAL_SECRET_KEY}`
+    ).toString("base64");
+    const response = await fetch(
+      "https://api-m.sandbox.paypal.com/v1/oauth2/token",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+          Authorization: `Basic ${auth}`,
+        },
+        body: "grant_type=client_credentials",
+      }
+    );
+
+    const data = await response.json();
+    return data.access_token;
+  } catch (error) {
+    console.error("Error getting PayPal access token:", error);
+    throw error;
+  }
+};
+
+export const getOrCreateProduct = async (): Promise<string> => {
+  try {
+    const accessToken = await getPayPalAccessToken();
+
+    // First try to get existing product
+    const productsResponse = await fetch(
+      "https://api-m.sandbox.paypal.com/v1/catalogs/products",
+      {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+      }
+    );
+
+    const products = await productsResponse.json();
+
+    if (products.products && products.products.length > 0) {
+      return products.products[0].id;
+    }
+
+    // If no product exists, create one
+    const createResponse = await fetch(
+      "https://api-m.sandbox.paypal.com/v1/catalogs/products",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify({
+          name: "VirtuHelpX Subscription",
+          type: "SERVICE",
+          description: "AI Document Analysis Subscription Service",
+        }),
+      }
+    );
+
+    const newProduct = await createResponse.json();
+    return newProduct.id;
+  } catch (error) {
+    console.error("Error managing PayPal product:", error);
+    throw error;
+  }
+};
+
+export const createSubscriptionPlan = async (planData: PlanData) => {
   try {
     const accessToken = await getPayPalAccessToken();
 
@@ -71,77 +156,9 @@ export const createSubscriptionPlan = async (planData: {
   }
 };
 
-export const getPayPalAccessToken = async () => {
-  try {
-    const auth = Buffer.from(
-      `${PAYPAL_CLIENT_ID}:${PAYPAL_SECRET_KEY}`
-    ).toString("base64");
-    const response = await fetch(
-      "https://api-m.sandbox.paypal.com/v1/oauth2/token",
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/x-www-form-urlencoded",
-          Authorization: `Basic ${auth}`,
-        },
-        body: "grant_type=client_credentials",
-      }
-    );
-
-    const data = await response.json();
-    return data.access_token;
-  } catch (error) {
-    console.error("Error getting PayPal access token:", error);
-    throw error;
-  }
-};
-
-export const getOrCreateProduct = async () => {
-  try {
-    const accessToken = await getPayPalAccessToken();
-
-    // First try to get existing product
-    const productsResponse = await fetch(
-      "https://api-m.sandbox.paypal.com/v1/catalogs/products",
-      {
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-        },
-      }
-    );
-
-    const products = await productsResponse.json();
-
-    if (products.products && products.products.length > 0) {
-      return products.products[0].id;
-    }
-
-    // If no product exists, create one
-    const createResponse = await fetch(
-      "https://api-m.sandbox.paypal.com/v1/catalogs/products",
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${accessToken}`,
-        },
-        body: JSON.stringify({
-          name: "HealthAI Subscription",
-          type: "SERVICE",
-          description: "HealthAI Subscription Service",
-        }),
-      }
-    );
-
-    const newProduct = await createResponse.json();
-    return newProduct.id;
-  } catch (error) {
-    console.error("Error managing PayPal product:", error);
-    throw error;
-  }
-};
-
-export const cancelSubscription = async (subscriptionId: string) => {
+export const cancelSubscription = async (
+  subscriptionId: string
+): Promise<boolean> => {
   try {
     const accessToken = await getPayPalAccessToken();
 
@@ -170,7 +187,9 @@ export const cancelSubscription = async (subscriptionId: string) => {
   }
 };
 
-export const getSubscriptionDetails = async (subscriptionId: string) => {
+export const getSubscriptionDetails = async (
+  subscriptionId: string
+): Promise<SubscriptionDetails> => {
   try {
     const accessToken = await getPayPalAccessToken();
 
@@ -251,4 +270,15 @@ export const createWebhookEndpoint = async (url: string) => {
     console.error("Error creating webhook endpoint:", error);
     throw error;
   }
+};
+
+module.exports = {
+  paypalConfig,
+  createSubscriptionPlan,
+  getPayPalAccessToken,
+  getOrCreateProduct,
+  cancelSubscription,
+  getSubscriptionDetails,
+  updateSubscription,
+  createWebhookEndpoint,
 };

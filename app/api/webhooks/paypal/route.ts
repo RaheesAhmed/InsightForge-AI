@@ -1,7 +1,14 @@
 import { NextResponse } from "next/server";
-import { getPayPalAccessToken } from "@/lib/paypal";
 import { prisma } from "@/lib/prisma";
 import { Plan, Status } from "@prisma/client";
+import { PLAN_LIMITS } from "@/lib/subscription";
+
+// Map PayPal plan IDs to our Plan enum
+const PLAN_MAP = {
+  [process.env.NEXT_PUBLIC_PAYPAL_BASIC_PLAN_ID!]: Plan.BASIC,
+  [process.env.NEXT_PUBLIC_PAYPAL_PREMIUM_PLAN_ID!]: Plan.PREMIUM,
+  [process.env.NEXT_PUBLIC_PAYPAL_ENTERPRISE_PLAN_ID!]: Plan.ENTERPRISE,
+};
 
 export async function POST(request: Request) {
   try {
@@ -9,11 +16,8 @@ export async function POST(request: Request) {
     const eventType = payload.event_type;
     const resource = payload.resource;
 
-    // Verify webhook signature
-    const accessToken = await getPayPalAccessToken();
-    const webhookId = process.env.PAYPAL_WEBHOOK_ID;
+    console.log("Received PayPal webhook:", eventType);
 
-    // Handle different webhook events
     switch (eventType) {
       case "BILLING.SUBSCRIPTION.CREATED":
         await handleSubscriptionCreated(resource);
@@ -46,34 +50,28 @@ async function handleSubscriptionCreated(resource: any) {
   const userId = resource.custom_id;
   const subscriptionId = resource.id;
   const planId = resource.plan_id;
+  const plan = PLAN_MAP[planId] || Plan.FREE;
 
   await prisma.subscription.upsert({
     where: { userId },
     create: {
       userId,
       paypalSubscriptionId: subscriptionId,
-      plan: getPlanFromPayPalPlanId(planId),
+      plan,
       status: Status.ACTIVE,
+      documentsLimit: PLAN_LIMITS[plan].documentsLimit,
+      questionsLimit: PLAN_LIMITS[plan].questionsLimit,
       validUntil: new Date(resource.billing_info.next_billing_time),
     },
     update: {
       paypalSubscriptionId: subscriptionId,
-      plan: getPlanFromPayPalPlanId(planId),
+      plan,
       status: Status.ACTIVE,
+      documentsLimit: PLAN_LIMITS[plan].documentsLimit,
+      questionsLimit: PLAN_LIMITS[plan].questionsLimit,
       validUntil: new Date(resource.billing_info.next_billing_time),
     },
   });
-}
-
-// Helper function to convert PayPal plan ID to our Plan enum
-function getPlanFromPayPalPlanId(planId: string): Plan {
-  // You'll need to map your PayPal plan IDs to your Plan enum values
-  const planMap: Record<string, Plan> = {
-    BASIC_PLAN_ID: Plan.BASIC,
-    PREMIUM_PLAN_ID: Plan.PREMIUM,
-    ENTERPRISE_PLAN_ID: Plan.ENTERPRISE,
-  };
-  return planMap[planId] || Plan.FREE;
 }
 
 async function handleSubscriptionCancelled(resource: any) {
@@ -87,6 +85,9 @@ async function handleSubscriptionCancelled(resource: any) {
       data: {
         status: Status.CANCELLED,
         validUntil: new Date(),
+        plan: Plan.FREE,
+        documentsLimit: PLAN_LIMITS.FREE.documentsLimit,
+        questionsLimit: PLAN_LIMITS.FREE.questionsLimit,
       },
     });
   }
@@ -120,7 +121,16 @@ async function handlePaymentFailed(resource: any) {
       },
     });
 
-    // You might want to send an email to the user here
+    // Create failed payment record
+    await prisma.payment.create({
+      data: {
+        subscriptionId: subscription.id,
+        amount: parseFloat(resource.amount.value),
+        currency: resource.amount.currency_code,
+        status: "FAILED",
+        paypalOrderId: resource.id,
+      },
+    });
   }
 }
 
@@ -130,10 +140,14 @@ async function handleSubscriptionUpdated(resource: any) {
   });
 
   if (subscription) {
+    const plan = PLAN_MAP[resource.plan_id] || subscription.plan;
+
     await prisma.subscription.update({
       where: { id: subscription.id },
       data: {
-        plan: getPlanFromPayPalPlanId(resource.plan_id),
+        plan,
+        documentsLimit: PLAN_LIMITS[plan].documentsLimit,
+        questionsLimit: PLAN_LIMITS[plan].questionsLimit,
         validUntil: new Date(resource.billing_info.next_billing_time),
       },
     });
