@@ -182,7 +182,7 @@ export function SettingsSheet({ open, onOpenChange }: SettingsSheetProps) {
                 </div>
 
                 {/* Upgrade Button */}
-                {subscription.plan !== "PREMIUM" && (
+                {subscription.plan !== "ENTERPRISE" && (
                   <Button
                     onClick={() => router.push("/subscription")}
                     className="w-full relative inline-flex items-center justify-center px-4 py-2 font-medium text-white transition-all duration-200 bg-gradient-to-r from-blue-500 to-indigo-500 rounded-lg hover:from-blue-600 hover:to-indigo-600"

@@ -8,11 +8,11 @@ const PLAN_LIMITS = {
     documentsLimit: 10,
     questionsLimit: 50,
   },
-  BASIC: {
+  PROFESSIONAL: {
     documentsLimit: 50,
     questionsLimit: 200,
   },
-  PREMIUM: {
+  ENTERPRISE: {
     documentsLimit: 200,
     questionsLimit: 1000,
   },

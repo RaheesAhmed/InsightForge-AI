@@ -23,6 +23,7 @@ export const paypalConfig: ReactPayPalScriptOptions = {
   intent: "subscription",
   vault: true,
   components: "buttons",
+  clientId: "",
 };
 
 export async function getPayPalAccessToken() {
