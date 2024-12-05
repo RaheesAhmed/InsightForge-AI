@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { db } from "@/lib/db";
 import { signJWT } from "@/lib/jwt";
 import bcrypt from "bcryptjs";
+import { cookies } from "next/headers";
 
 export async function POST(req: Request) {
   try {
@@ -16,7 +17,7 @@ export async function POST(req: Request) {
     }
 
     // Check if user already exists
-    const existingUser = await prisma.user.findUnique({
+    const existingUser = await db.user.findUnique({
       where: { email },
     });
 
@@ -28,7 +29,7 @@ export async function POST(req: Request) {
     }
 
     // Create user in database
-    const user = await prisma.user.create({
+    const user = await db.user.create({
       data: {
         email,
         hashedPassword: await bcrypt.hash(password, 10),
@@ -52,28 +53,59 @@ export async function POST(req: Request) {
         id: true,
         email: true,
         name: true,
-
         role: true,
-        subscription: true,
+        subscription: {
+          select: {
+            plan: true,
+            documentsLimit: true,
+            questionsLimit: true,
+            questionsUsed: true,
+            validUntil: true,
+            status: true,
+          },
+        },
       },
     });
 
     // Generate JWT token
-    const token = signJWT({
+    const token = await signJWT({
       userId: user.id,
       email: user.email,
+      name: user.name || undefined,
       role: user.role,
     });
 
-    return NextResponse.json({
-      user: {
-        id: user.id,
-        email: user.email,
-        name: user.name,
+    // Set the auth token as an HTTP-only cookie
+    const cookieStore = cookies();
+    cookieStore.set("auth-token", token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      path: "/",
+      maxAge: 60 * 60 * 24, // 24 hours
+    });
 
-        role: user.role,
-      },
+    // Format user data for response
+    const userData = {
+      id: user.id,
+      email: user.email,
+      name: user.name,
+      role: user.role,
+      subscription: user.subscription
+        ? {
+            plan: user.subscription.plan,
+            documentsPerMonth: user.subscription.documentsLimit,
+            questionsPerMonth: user.subscription.questionsLimit,
+            questionsUsed: user.subscription.questionsUsed,
+            validUntil: user.subscription.validUntil,
+          }
+        : null,
+    };
+
+    return NextResponse.json({
+      user: userData,
       token,
+      redirect: "/chat",
     });
   } catch (error: any) {
     console.error("Registration error:", error);

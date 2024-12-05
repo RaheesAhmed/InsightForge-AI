@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { db } from "@/lib/db";
 import { signJWT } from "@/lib/jwt";
 import bcrypt from "bcryptjs";
 import { cookies } from "next/headers";
@@ -15,7 +15,7 @@ export async function POST(req: Request) {
       );
     }
 
-    const user = await prisma.user.findUnique({
+    const user = await db.user.findUnique({
       where: { email },
       select: {
         id: true,

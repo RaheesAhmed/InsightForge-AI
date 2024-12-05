@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { verifyJWT } from "@/lib/jwt";
-import { prisma } from "@/lib/prisma";
+import { db } from "@/lib/db";
 
 export async function GET() {
   try {
@@ -26,7 +26,7 @@ export async function GET() {
     }
 
     // Get fresh user data from database
-    const user = await prisma.user.findUnique({
+    const user = await db.user.findUnique({
       where: { id: payload.userId },
       select: {
         id: true,
@@ -47,10 +47,7 @@ export async function GET() {
     });
 
     if (!user) {
-      return NextResponse.json(
-        { error: "User not found" },
-        { status: 401 }
-      );
+      return NextResponse.json({ error: "User not found" }, { status: 401 });
     }
 
     // Format user data for response
