@@ -9,13 +9,13 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
-import Sidebar from "@/components/ChatSideBar";
+import { ChatSideBar } from "@/components/ChatSideBar";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
 import { vscDarkPlus } from "react-syntax-highlighter/dist/esm/styles/prism";
 import { useEffect, useState } from "react";
-import PaymentModal from "@/components/PaymentModal";
+import { PaymentModal } from "@/components/PaymentModal";
 import { toast } from "@/hooks/use-toast";
 import AssistantFunctionsCard from "@/components/AssistantFunctionsCard";
 import { Subscription, SubscriptionPlan } from "@/types/subscription";
@@ -32,48 +32,12 @@ type SessionProps = {
   createdAt: number;
 };
 
-interface CodeProps extends React.HTMLAttributes<HTMLElement> {
-  node?: any;
-  inline?: boolean;
-  className?: string;
+interface CodeProps {
+  node: any;
+  inline: boolean;
+  className: string;
   children: React.ReactNode;
 }
-
-const SUBSCRIPTION_PLANS: SubscriptionPlan[] = [
-  {
-    id: "FREE",
-    name: "Free",
-    description: "Basic features for personal use",
-    price: "0",
-    features: ["3 Documents/month", "20 Questions/month"],
-    documentsPerMonth: 3,
-    questionsPerMonth: 20,
-  },
-  // ... rest of the plans remain the same
-];
-
-const CopyButton = ({ text }: { text: string }) => {
-  const [copied, setCopied] = React.useState(false);
-
-  const handleCopy = async () => {
-    await navigator.clipboard.writeText(text);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  };
-
-  return (
-    <button
-      className="absolute right-2 top-2 p-2 rounded-lg bg-white/5 hover:bg-white/10 transition-colors backdrop-blur-sm"
-      onClick={handleCopy}
-    >
-      {copied ? (
-        <Check className="h-4 w-4 text-green-400" />
-      ) : (
-        <Copy className="h-4 w-4 text-blue-400" />
-      )}
-    </button>
-  );
-};
 
 const LoadingSpinner = () => {
   return (
@@ -124,43 +88,25 @@ const Message = ({ role, content }: MessageProps) => {
             <ReactMarkdown
               remarkPlugins={[remarkGfm]}
               components={{
-                code({
+                code: function Code({
                   node,
                   inline,
                   className,
                   children,
                   ...props
-                }: CodeProps) {
+                }: CodeProps & React.HTMLAttributes<HTMLElement>) {
                   const match = /language-(\w+)/.exec(className || "");
-                  const code = String(children).replace(/\n$/, "");
                   return !inline && match ? (
-                    <div className="relative">
-                      <SyntaxHighlighter
-                        {...props}
-                        style={vscDarkPlus}
-                        language={match[1]}
-                        PreTag="div"
-                        className="rounded-lg !bg-[#1a1b26] !mt-0 border border-white/10"
-                        showLineNumbers
-                        customStyle={{
-                          margin: 0,
-                          padding: "1.5rem 1rem",
-                          paddingRight: "2.5rem",
-                          background: "rgba(0, 0, 0, 0.3)",
-                        }}
-                      >
-                        {code}
-                      </SyntaxHighlighter>
-                      <CopyButton text={code} />
-                    </div>
-                  ) : (
-                    <code
+                    <SyntaxHighlighter
+                      style={vscDarkPlus as any}
+                      language={match[1]}
+                      PreTag="div"
                       {...props}
-                      className={cn(
-                        "bg-white/5 rounded px-1 py-0.5 text-blue-400",
-                        className
-                      )}
                     >
+                      {String(children).replace(/\n$/, "")}
+                    </SyntaxHighlighter>
+                  ) : (
+                    <code className={className} {...props}>
                       {children}
                     </code>
                   );
@@ -493,19 +439,26 @@ const ChatPage = () => {
       const updatedSubscription = await response.json();
 
       // Update local subscription state
-      setSubscription((prev) => ({
-        ...prev,
-        questionsUsed: updatedSubscription.questionsUsed,
-        documentsUsed: updatedSubscription.documentsUsed,
-      }));
+      setSubscription((prev) => {
+        if (!prev) return null;
+        return {
+          ...prev,
+          questionsUsed: updatedSubscription.questionsUsed,
+          documentsUsed: updatedSubscription.documentsUsed,
+          plan: prev.plan,
+          documentsPerMonth: prev.documentsPerMonth,
+          questionsPerMonth: prev.questionsPerMonth,
+          validUntil: prev.validUntil,
+        };
+      });
 
       // Also update the user context if needed
-      if (user) {
+      if (user && user.subscription) {
         user.subscription = {
           ...user.subscription,
           questionsUsed: updatedSubscription.questionsUsed,
           documentsUsed: updatedSubscription.documentsUsed,
-        };
+        } as typeof user.subscription;
       }
     } catch (error) {
       console.error("Error updating usage:", error);
@@ -515,7 +468,7 @@ const ChatPage = () => {
 
   return (
     <div className="flex h-[100vh] overflow-hidden bg-[#0A0F1E]">
-      <Sidebar
+      <ChatSideBar
         sessions={sessions}
         activeSessionIndex={activeSessionIndex}
         onNewChat={handleNewChat}
@@ -613,7 +566,16 @@ const ChatPage = () => {
       <PaymentModal
         isOpen={showPaymentModal}
         onClose={() => setShowPaymentModal(false)}
-        subscription={subscription}
+        subscription={
+          subscription
+            ? {
+                questionsUsed: subscription.questionsUsed,
+                documentsUsed: subscription.documentsUsed,
+                questionsPerMonth: subscription.questionsPerMonth,
+                documentsPerMonth: subscription.documentsPerMonth,
+              }
+            : undefined
+        }
       />
     </div>
   );

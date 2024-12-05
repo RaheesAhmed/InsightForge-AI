@@ -26,7 +26,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { useState } from "react";
-import SettingsSheet from "./SettingsSheet";
+import { SettingsSheet } from "./SettingsSheet";
 import { useAuth } from "@/lib/useAuth";
 
 type MessageProps = {
@@ -41,7 +41,7 @@ type SessionProps = {
   createdAt: number;
 };
 
-interface SidebarProps {
+interface ChatSideBarProps {
   sessions: SessionProps[];
   activeSessionIndex: number | null;
   onNewChat: () => void;
@@ -49,13 +49,13 @@ interface SidebarProps {
   onClearAllChats: () => void;
 }
 
-const Sidebar: React.FC<SidebarProps> = ({
+export function ChatSideBar({
   sessions,
   activeSessionIndex,
   onNewChat,
   onSelectChat,
   onClearAllChats,
-}) => {
+}: ChatSideBarProps) {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const { user } = useAuth();
@@ -283,6 +283,4 @@ const Sidebar: React.FC<SidebarProps> = ({
       <SettingsSheet isOpen={isSettingsOpen} onOpenChange={setIsSettingsOpen} />
     </TooltipProvider>
   );
-};
-
-export default Sidebar;
+}

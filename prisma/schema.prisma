@@ -31,21 +31,21 @@ enum SubscriptionStatus {
 }
 
 model Subscription {
-  id                   String            @id @default(cuid())
-  userId               String            @unique
-  user                 User              @relation(fields: [userId], references: [id])
-  paypalSubscriptionId String?           @unique
-  plan                 Plan              @default(FREE)
-  status              Status            @default(ACTIVE)
-  stripeCustomerId    String?
-  documentsLimit      Int               @default(3)
-  questionsLimit      Int               @default(20)
-  documentsUsed       Int               @default(0)
-  questionsUsed       Int               @default(0)
-  validUntil          DateTime
-  createdAt           DateTime          @default(now())
-  updatedAt           DateTime          @updatedAt
-  paymentHistory      Payment[]
+  id              String    @id @default(cuid())
+  userId          String    @unique
+  user            User      @relation(fields: [userId], references: [id])
+  plan            String    @default("Free")
+  subscriptionId  String?   // PayPal subscription ID
+  documentsLimit  Int       @default(3)
+  questionsLimit  Int       @default(20)
+  documentsUsed   Int       @default(0)
+  questionsUsed   Int       @default(0)
+  validUntil      DateTime
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  payments        Payment[]
+
+  @@index([userId])
 }
 
 enum PaymentStatus {

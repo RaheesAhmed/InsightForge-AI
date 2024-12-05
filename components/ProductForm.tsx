@@ -6,8 +6,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "@/hooks/use-toast";
-import { createProduct } from "@/app/actions/stripe";
 import { useRouter } from "next/navigation";
+import { createSubscriptionPlan } from "@/lib/paypal";
 
 export default function ProductForm() {
   const router = useRouter();
@@ -16,6 +16,8 @@ export default function ProductForm() {
     name: "",
     description: "",
     price: "",
+    documentsLimit: "",
+    questionsLimit: "",
   });
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -23,22 +25,31 @@ export default function ProductForm() {
     setLoading(true);
 
     try {
-      await createProduct({
+      await createSubscriptionPlan({
         name: formData.name,
         description: formData.description,
         price: parseFloat(formData.price),
+        documentsLimit: parseInt(formData.documentsLimit),
+        questionsLimit: parseInt(formData.questionsLimit),
+        interval: "MONTH",
       });
 
       toast({
-        title: "Product created successfully",
+        title: "Subscription plan created successfully",
       });
 
-      setFormData({ name: "", description: "", price: "" });
-      router.refresh(); // Refresh the page to show new product
+      setFormData({
+        name: "",
+        description: "",
+        price: "",
+        documentsLimit: "",
+        questionsLimit: "",
+      });
+      router.refresh();
     } catch (error) {
-      console.error("Error creating product:", error);
+      console.error("Error creating subscription plan:", error);
       toast({
-        title: "Failed to create product",
+        title: "Failed to create subscription plan",
         description: "Please try again later",
       });
     } finally {
@@ -49,7 +60,7 @@ export default function ProductForm() {
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       <div className="space-y-2">
-        <Label htmlFor="name">Product Name</Label>
+        <Label htmlFor="name">Plan Name</Label>
         <Input
           id="name"
           value={formData.name}
@@ -82,8 +93,32 @@ export default function ProductForm() {
           required
         />
       </div>
+      <div className="space-y-2">
+        <Label htmlFor="documentsLimit">Documents per Month</Label>
+        <Input
+          id="documentsLimit"
+          type="number"
+          value={formData.documentsLimit}
+          onChange={(e) =>
+            setFormData({ ...formData, documentsLimit: e.target.value })
+          }
+          required
+        />
+      </div>
+      <div className="space-y-2">
+        <Label htmlFor="questionsLimit">Questions per Month</Label>
+        <Input
+          id="questionsLimit"
+          type="number"
+          value={formData.questionsLimit}
+          onChange={(e) =>
+            setFormData({ ...formData, questionsLimit: e.target.value })
+          }
+          required
+        />
+      </div>
       <Button type="submit" disabled={loading}>
-        {loading ? "Creating..." : "Create Product"}
+        {loading ? "Creating..." : "Create Plan"}
       </Button>
     </form>
   );

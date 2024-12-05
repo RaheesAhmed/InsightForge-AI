@@ -26,7 +26,8 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { motion } from "framer-motion";
 import { useAuth } from "@/lib/useAuth";
-import NavBar from "@/components/NavBar";
+import { PayPalButtons } from "@paypal/react-paypal-js";
+import { activateSubscription } from "@/lib/paypal";
 
 interface UserData {
   id: string;
@@ -37,39 +38,90 @@ interface UserData {
 
 interface Subscription {
   plan: string;
-  documentsPerMonth: number;
-  questionsPerMonth: number;
+  documentsLimit: number;
+  questionsLimit: number;
   questionsUsed: number;
   documentsUsed: number;
   validUntil: Date;
-  planId: string;
+  planId: string | null;
 }
 
-interface Price {
-  id: string;
-  unit_amount: number;
-  currency: string;
-  recurring: {
-    interval: string;
-  };
-}
-
-interface Product {
+interface Plan {
   id: string;
   name: string;
   description: string;
-  default_price: string;
-  metadata: {
-    documentsPerMonth: string;
-    questionsPerMonth: string;
-  };
+  price: number;
+  documentsLimit: number;
+  questionsLimit: number;
+  planId: string | null;
+  features: string[];
+  icon: React.ReactNode;
+  color: string;
 }
 
-export default function SubscriptionDashboard() {
+const plans: Plan[] = [
+  {
+    id: "free",
+    name: "Free",
+    description: "Perfect for trying out our service",
+    price: 0,
+    documentsLimit: 3,
+    questionsLimit: 20,
+    planId: null,
+    features: [
+      "3 documents/month",
+      "20 questions/month",
+      "Basic Support",
+      "Standard Features",
+    ],
+    icon: <User className="h-5 w-5" />,
+    color: "bg-gray-100 text-gray-900",
+  },
+  {
+    id: "pro",
+    name: "Professional",
+    description: "Best for professionals and small teams",
+    price: 29.99,
+    documentsLimit: 25,
+    questionsLimit: 100,
+    planId: process.env.NEXT_PUBLIC_PAYPAL_PRO_PLAN_ID!,
+    features: [
+      "25 documents/month",
+      "100 questions/month",
+      "Priority Support",
+      "Advanced Features",
+      "API Access",
+      "Team Collaboration",
+    ],
+    icon: <Zap className="h-5 w-5" />,
+    color: "bg-blue-100 text-blue-900",
+  },
+  {
+    id: "enterprise",
+    name: "Enterprise",
+    description: "For large organizations with advanced needs",
+    price: 99.99,
+    documentsLimit: -1,
+    questionsLimit: -1,
+    planId: process.env.NEXT_PUBLIC_PAYPAL_ENTERPRISE_PLAN_ID!,
+    features: [
+      "Unlimited documents",
+      "Unlimited questions",
+      "24/7 Premium Support",
+      "All Features",
+      "Custom Integration",
+      "Dedicated Account Manager",
+      "SLA Guarantee",
+      "Custom AI Training",
+    ],
+    icon: <Crown className="h-5 w-5" />,
+    color: "bg-purple-100 text-purple-900",
+  },
+];
+
+export default function SubscriptionPage() {
   const [user, setUser] = useState<UserData | null>(null);
   const [subscription, setSubscription] = useState<Subscription | null>(null);
-  const [products, setProducts] = useState<Product[]>([]);
-  const [prices, setPrices] = useState<Price[]>([]);
   const [loading, setLoading] = useState(true);
   const [upgrading, setUpgrading] = useState(false);
   const { toast } = useToast();
@@ -77,38 +129,33 @@ export default function SubscriptionDashboard() {
   useEffect(() => {
     fetchUserData();
     fetchSubscriptionDetails();
-    fetchPlans();
   }, []);
 
   const fetchUserData = async () => {
     const user = await useAuth.getState().user;
-
     if (!user) {
-      return; // Don't set user data if user is null/undefined
+      toast({
+        title: "Error",
+        description: "Please sign in to manage your subscription",
+        variant: "destructive",
+      });
+      return;
     }
 
     setUser({
-      id: user.id || "", // Provide default empty string if undefined
-      name: user.name || "", // Provide default empty string if undefined
-      email: user.email || "", // Provide default empty string if undefined
-      image: user.image || undefined, // Keep image optional
+      id: user.id || "",
+      name: user.firstName ? `${user.firstName} ${user.lastName || ""}` : "",
+      email: user.emailAddresses[0]?.emailAddress || "",
+      image: user.imageUrl || "",
     });
   };
 
   const fetchSubscriptionDetails = async () => {
     try {
-      const response = await fetch("/api/subscriptions/usage", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ type: "check" }), // Just checking current usage
-      });
-
+      const response = await fetch("/api/subscriptions/manage");
       if (!response.ok) {
         throw new Error("Failed to fetch subscription details");
       }
-
       const data = await response.json();
       setSubscription(data);
     } catch (error) {
@@ -118,381 +165,282 @@ export default function SubscriptionDashboard() {
         description: "Failed to fetch subscription details",
         variant: "destructive",
       });
-    }
-  };
-
-  const fetchPlans = async () => {
-    try {
-      const response = await fetch("/api/subscriptions/plans");
-      if (!response.ok) {
-        throw new Error("Failed to fetch plans");
-      }
-
-      const data = await response.json();
-      setProducts(
-        data.products.map((product: any) => ({
-          id: product.id,
-          name: product.name,
-          description: product.description,
-          default_price: product.default_price,
-          metadata: {
-            documentsPerMonth: product.metadata.documentsPerMonth || "0",
-            questionsPerMonth: product.metadata.questionsPerMonth || "0",
-          },
-        }))
-      );
-      setPrices(data.prices);
-      setLoading(false);
-    } catch (error) {
-      console.error("Error fetching plans:", error);
-      toast({
-        title: "Error",
-        description: "Failed to fetch subscription plans",
-        variant: "destructive",
-      });
+    } finally {
       setLoading(false);
     }
   };
 
-  const handleUpgrade = async (planId: string) => {
-    setUpgrading(true);
+  const handleSubscriptionSuccess = async (
+    subscriptionId: string,
+    planName: string
+  ) => {
     try {
-      const response = await fetch("/api/subscriptions", {
+      setUpgrading(true);
+
+      // Update subscription in database
+      const response = await fetch("/api/subscriptions/manage", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ planId }),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || "Failed to upgrade plan");
-      }
-
-      if (data.url) {
-        // Redirect to Stripe checkout
-        window.location.href = data.url;
-      } else {
-        // Handle free plan upgrade
-        toast({
-          title: "Plan Upgraded",
-          description: "Your subscription has been successfully upgraded.",
-        });
-        fetchSubscriptionDetails();
-      }
-    } catch (error) {
-      console.error("Error upgrading plan:", error);
-      toast({
-        title: "Error",
-        description: "Failed to upgrade plan",
-        variant: "destructive",
-      });
-    }
-    setUpgrading(false);
-  };
-
-  const handleCancelSubscription = async () => {
-    if (!confirm("Are you sure you want to cancel your subscription?")) {
-      return;
-    }
-
-    setUpgrading(true);
-    try {
-      const response = await fetch("/api/subscriptions", {
-        method: "DELETE",
+        body: JSON.stringify({
+          subscriptionId,
+          plan: planName,
+        }),
       });
 
       if (!response.ok) {
-        throw new Error("Failed to cancel subscription");
+        throw new Error("Failed to update subscription");
       }
 
+      // Activate PayPal subscription
+      await activateSubscription(subscriptionId);
+
       toast({
-        title: "Subscription Cancelled",
-        description:
-          "Your subscription will remain active until the end of the billing period",
+        title: "Success",
+        description: "Your subscription has been upgraded successfully",
       });
-      fetchSubscriptionDetails();
+
+      await fetchSubscriptionDetails();
     } catch (error) {
-      console.error("Error cancelling subscription:", error);
+      console.error("Error upgrading subscription:", error);
       toast({
         title: "Error",
-        description: "Failed to cancel subscription",
+        description: "Failed to upgrade subscription",
         variant: "destructive",
       });
+    } finally {
+      setUpgrading(false);
     }
-    setUpgrading(false);
   };
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <Loader2 className="h-8 w-8 animate-spin text-purple-600" />
+      <div className="flex min-h-screen items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin" />
       </div>
     );
   }
 
   return (
-    <div className="container mx-auto py-8 space-y-8 px-4 max-w-7xl">
-      <NavBar />
-      {user && (
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5 }}
-          className="bg-gradient-to-br from-purple-600 via-purple-700 to-indigo-800 rounded-xl p-8 text-white shadow-2xl"
-        >
-          <div className="flex items-center gap-8">
-            <Avatar className="h-24 w-24 border-4 border-white/20 shadow-xl">
-              <AvatarImage src={user.image} />
-              <AvatarFallback className="bg-white/10 text-2xl font-bold">
-                {user.name?.charAt(0) || user.email.charAt(0)}
-              </AvatarFallback>
-            </Avatar>
-            <div className="space-y-2">
-              <h1 className="text-3xl font-bold tracking-tight">{user.name}</h1>
-              <p className="text-purple-200 text-lg">{user.email}</p>
-              {subscription && (
-                <Badge className="mt-2 bg-white/20 hover:bg-white/30 text-white border-none">
-                  <Crown className="w-4 h-4 mr-2" />
-                  {subscription.plan} Plan
-                </Badge>
-              )}
+    <div className="min-h-screen bg-gradient-to-b from-gray-50 to-gray-100 py-12 px-4 sm:px-6 lg:px-8">
+      {/* Current Plan Section */}
+      {subscription && (
+        <div className="mx-auto max-w-7xl mb-12">
+          <div className="bg-white rounded-lg shadow-lg p-6">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-4">
+                <Avatar>
+                  <AvatarImage src={user?.image} />
+                  <AvatarFallback>{user?.name?.[0]}</AvatarFallback>
+                </Avatar>
+                <div>
+                  <h2 className="text-xl font-semibold">{user?.name}</h2>
+                  <p className="text-sm text-gray-500">{user?.email}</p>
+                </div>
+              </div>
+              <Badge
+                variant="outline"
+                className={
+                  subscription.plan === "Free" ? "bg-gray-100" : "bg-blue-100"
+                }
+              >
+                {subscription.plan} Plan
+              </Badge>
+            </div>
+
+            <div className="mt-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium text-gray-500">
+                    Documents
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-2">
+                    <div className="text-2xl font-bold">
+                      {subscription.documentsUsed} /{" "}
+                      {subscription.documentsLimit === -1
+                        ? "∞"
+                        : subscription.documentsLimit}
+                    </div>
+                    <Progress
+                      value={
+                        (subscription.documentsUsed /
+                          subscription.documentsLimit) *
+                        100
+                      }
+                    />
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium text-gray-500">
+                    Questions
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-2">
+                    <div className="text-2xl font-bold">
+                      {subscription.questionsUsed} /{" "}
+                      {subscription.questionsLimit === -1
+                        ? "∞"
+                        : subscription.questionsLimit}
+                    </div>
+                    <Progress
+                      value={
+                        (subscription.questionsUsed /
+                          subscription.questionsLimit) *
+                        100
+                      }
+                    />
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium text-gray-500">
+                    Billing Period
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="flex items-center space-x-2">
+                    <Calendar className="h-4 w-4 text-gray-500" />
+                    <span className="text-sm font-medium">
+                      Valid until{" "}
+                      {new Date(subscription.validUntil).toLocaleDateString()}
+                    </span>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium text-gray-500">
+                    Payment Status
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="flex items-center space-x-2">
+                    <CreditCard className="h-4 w-4 text-green-500" />
+                    <span className="text-sm font-medium text-green-600">
+                      Active
+                    </span>
+                  </div>
+                </CardContent>
+              </Card>
             </div>
           </div>
-        </motion.div>
+        </div>
       )}
 
-      {subscription && (
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, delay: 0.2 }}
-          className="grid grid-cols-1 md:grid-cols-2 gap-6"
-        >
-          <Card className="border border-purple-100 bg-white/50 backdrop-blur-sm shadow-md">
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <div>
-                  <CardTitle className="text-2xl flex items-center gap-2 text-purple-700">
-                    <Zap className="text-purple-500" />
-                    Usage Statistics
-                  </CardTitle>
-                  <CardDescription className="flex items-center gap-2 mt-2 text-gray-600">
-                    <Calendar className="w-4 h-4" />
-                    Renews on{" "}
-                    {new Date(subscription.validUntil).toLocaleDateString()}
-                  </CardDescription>
-                </div>
-                <Badge
-                  variant="outline"
-                  className="border-2 border-purple-200 bg-purple-50"
-                >
-                  {subscription.plan}
-                </Badge>
-              </div>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="bg-white p-6 rounded-xl border border-purple-100">
-                <div className="flex justify-between items-center mb-3">
-                  <p className="text-sm font-medium flex items-center gap-2 text-gray-700">
-                    <User className="w-4 h-4 text-purple-500" /> Documents Usage
-                  </p>
-                  <span className="text-sm font-bold text-purple-600">
-                    {subscription.documentsUsed}/
-                    {subscription.documentsPerMonth}
-                  </span>
-                </div>
-                <Progress
-                  value={
-                    (subscription.documentsUsed /
-                      subscription.documentsPerMonth) *
-                    100
-                  }
-                  className="h-2 bg-purple-100"
-                />
-              </div>
-              <div className="bg-white p-6 rounded-xl border border-purple-100">
-                <div className="flex justify-between items-center mb-3">
-                  <p className="text-sm font-medium flex items-center gap-2 text-gray-700">
-                    <CreditCard className="w-4 h-4 text-purple-500" /> Questions
-                    Usage
-                  </p>
-                  <span className="text-sm font-bold text-purple-600">
-                    {subscription.questionsUsed}/
-                    {subscription.questionsPerMonth}
-                  </span>
-                </div>
-                <Progress
-                  value={
-                    (subscription.questionsUsed /
-                      subscription.questionsPerMonth) *
-                    100
-                  }
-                  className="h-2 bg-purple-100"
-                />
-              </div>
-            </CardContent>
-          </Card>
-          <Card className="border border-purple-100 bg-white/50 backdrop-blur-sm shadow-md">
-            <CardHeader>
-              <CardTitle className="text-2xl flex items-center gap-2 text-purple-700">
-                <Gift className="text-purple-500" />
-                Plan Benefits
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {[
-                { icon: Shield, text: "Advanced Security Features" },
-                { icon: Zap, text: "Faster Processing Times" },
-                { icon: User, text: "Priority Customer Support" },
-                { icon: Gift, text: "Exclusive Content Access" },
-              ].map((benefit, index) => (
-                <div
-                  key={index}
-                  className="flex items-center gap-3 text-gray-700"
-                >
-                  <benefit.icon className="w-5 h-5 text-purple-500" />
-                  <span>{benefit.text}</span>
-                </div>
-              ))}
-            </CardContent>
-          </Card>
-        </motion.div>
-      )}
-
-      <div className="mt-12">
-        <div className="flex justify-between items-center mb-8">
-          <div>
-            <h2 className="text-2xl font-bold text-gray-900">
-              Subscription Plans
-            </h2>
-            <p className="text-gray-600 mt-1">
-              Choose the perfect plan for your needs
-            </p>
-          </div>
-          {subscription && subscription.plan !== "FREE" && (
-            <Button
-              variant="outline"
-              className="text-red-600 border-red-200 hover:bg-red-50"
-              onClick={handleCancelSubscription}
-              disabled={upgrading}
-            >
-              Cancel Subscription
-            </Button>
-          )}
-        </div>
-
-        <div className="relative">
-          <div
-            className="absolute inset-0 bg-purple-50 transform transition-all duration-300 rounded-xl"
-            style={{
-              width: "33.333333%",
-              left: `${
-                products.findIndex((p) => p.id === subscription?.planId) *
-                33.333333
-              }%`,
-              display: subscription ? "block" : "none",
-            }}
-          />
-
-          <div className="relative grid grid-cols-1 md:grid-cols-3 gap-6 rounded-xl border border-purple-100 bg-white overflow-hidden p-6">
-            {products.map((product, index) => {
-              const price = prices.find((p) => p.id === product.default_price);
-              const isCurrentPlan = subscription?.planId === product.id;
-
-              return (
-                <motion.div
-                  key={product.id}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.5, delay: index * 0.1 }}
-                  className={`p-6 rounded-xl ${
-                    isCurrentPlan
-                      ? "bg-purple-50 border-purple-200"
-                      : "hover:bg-gray-50 border-gray-200"
-                  } border-2 transition-all duration-300`}
-                >
-                  <div className="flex flex-col h-full">
-                    <div className="mb-4">
-                      <div className="flex items-center justify-between">
-                        <h3 className="text-xl font-semibold text-gray-900">
-                          {product.name}
-                        </h3>
-                        {isCurrentPlan && (
-                          <Badge className="bg-purple-100 text-purple-700 border-none">
-                            Current
-                          </Badge>
-                        )}
-                      </div>
-                      <p className="mt-2 text-sm text-gray-600">
-                        {product.description}
-                      </p>
-                    </div>
-
-                    <div className="mb-6">
-                      <p className="text-3xl font-bold text-purple-700">
-                        {price
-                          ? `$${(price.unit_amount / 100).toFixed(
-                              2
-                            )} ${price.currency.toUpperCase()}`
-                          : "Free"}
-                        <span className="text-sm font-normal text-gray-500">
-                          {price?.recurring && `/${price.recurring.interval}`}
-                        </span>
-                      </p>
-                    </div>
-
-                    <div className="space-y-3 mb-6 flex-grow">
-                      {[
-                        `${product.metadata.documentsPerMonth} documents/month`,
-                        `${product.metadata.questionsPerMonth} questions/month`,
-                        "24/7 Support",
-                        "API Access",
-                      ].map((feature, i) => (
-                        <div
-                          key={i}
-                          className="flex items-center gap-2 text-sm text-gray-600"
-                        >
-                          <CheckCircle2 className="w-4 h-4 text-green-500 flex-shrink-0" />
-                          {feature}
-                        </div>
-                      ))}
-                    </div>
-
-                    <Button
-                      className={`w-full ${
-                        isCurrentPlan
-                          ? "bg-purple-200 text-purple-800 hover:bg-purple-300 cursor-default"
-                          : "bg-purple-600 hover:bg-purple-700"
-                      }`}
-                      onClick={() => handleUpgrade(product.id)}
-                      disabled={upgrading || isCurrentPlan}
-                    >
-                      {upgrading ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                      ) : isCurrentPlan ? (
-                        "Current Plan"
-                      ) : (
-                        "Upgrade Plan"
-                      )}
-                    </Button>
-                  </div>
-                </motion.div>
-              );
-            })}
-          </div>
-        </div>
-
-        <div className="mt-6 text-center text-sm text-gray-600">
-          <p>All plans include automatic monthly renewals. Cancel anytime.</p>
-          <p className="mt-2">
-            Need help choosing?{" "}
-            <a href="/contact" className="text-purple-600 hover:underline">
-              Contact our sales team
-            </a>
+      {/* Plans Section */}
+      <div className="mx-auto max-w-7xl">
+        <div className="text-center mb-12">
+          <h2 className="text-3xl font-bold tracking-tight text-gray-900 sm:text-4xl">
+            Choose Your Plan
+          </h2>
+          <p className="mt-4 text-lg text-gray-500">
+            Select the perfect plan for your needs
           </p>
+        </div>
+
+        <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
+          {plans.map((plan) => (
+            <motion.div
+              key={plan.id}
+              whileHover={{ scale: 1.02 }}
+              transition={{ duration: 0.2 }}
+            >
+              <Card
+                className={`relative h-full ${
+                  plan.name === subscription?.plan ? "ring-2 ring-blue-500" : ""
+                }`}
+              >
+                {plan.name === subscription?.plan && (
+                  <div className="absolute -top-2 -right-2">
+                    <Badge className="bg-blue-500">Current Plan</Badge>
+                  </div>
+                )}
+                <CardHeader>
+                  <div
+                    className={`inline-flex rounded-lg p-2 ${plan.color} mb-4`}
+                  >
+                    {plan.icon}
+                  </div>
+                  <CardTitle>{plan.name}</CardTitle>
+                  <CardDescription>{plan.description}</CardDescription>
+                </CardHeader>
+                <CardContent className="flex-grow">
+                  <div className="mb-4">
+                    <span className="text-3xl font-bold">${plan.price}</span>
+                    <span className="text-gray-500">/month</span>
+                  </div>
+                  <ul className="space-y-2 mb-6">
+                    {plan.features.map((feature) => (
+                      <li key={feature} className="flex items-center space-x-2">
+                        <CheckCircle2 className="h-4 w-4 text-green-500" />
+                        <span className="text-sm text-gray-600">{feature}</span>
+                      </li>
+                    ))}
+                  </ul>
+                  {plan.planId && plan.name !== subscription?.plan ? (
+                    <div className="relative">
+                      {upgrading && (
+                        <div className="absolute inset-0 bg-white/50 backdrop-blur-sm flex items-center justify-center z-10">
+                          <Loader2 className="h-6 w-6 animate-spin" />
+                        </div>
+                      )}
+                      <PayPalButtons
+                        createSubscription={(data, actions) => {
+                          return actions.subscription.create({
+                            plan_id: plan.planId!,
+                          });
+                        }}
+                        onApprove={async (data, actions) => {
+                          if (data.subscriptionID) {
+                            await handleSubscriptionSuccess(
+                              data.subscriptionID,
+                              plan.name
+                            );
+                          }
+                          return Promise.resolve();
+                        }}
+                        onError={(err) => {
+                          console.error("PayPal Error:", err);
+                          toast({
+                            title: "Payment failed",
+                            description: "Please try again later",
+                            variant: "destructive",
+                          });
+                        }}
+                        style={{
+                          layout: "vertical",
+                          color: "blue",
+                        }}
+                        disabled={upgrading}
+                      />
+                    </div>
+                  ) : (
+                    <Button
+                      className="w-full"
+                      variant={
+                        plan.name === subscription?.plan ? "outline" : "default"
+                      }
+                      disabled={true}
+                    >
+                      {plan.name === subscription?.plan
+                        ? "Current Plan"
+                        : "Select Plan"}
+                    </Button>
+                  )}
+                </CardContent>
+              </Card>
+            </motion.div>
+          ))}
         </div>
       </div>
     </div>

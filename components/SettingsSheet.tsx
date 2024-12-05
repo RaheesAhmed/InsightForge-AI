@@ -1,262 +1,178 @@
-import React from "react";
+"use client";
+
 import {
   Sheet,
   SheetContent,
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
-import { Separator } from "@/components/ui/separator";
-import { useAuth } from "@/lib/useAuth";
-import { Button } from "./ui/button";
-import { toast } from "sonner";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Progress } from "@/components/ui/progress";
-import { User, CreditCard, Package, Crown, LogOut } from "lucide-react";
-import { Subscription, SubscriptionPlan } from "@/types/subscription";
+import { Button } from "@/components/ui/button";
+import { PayPalButtons } from "@paypal/react-paypal-js";
+import { toast } from "@/hooks/use-toast";
+import { activateSubscription, cancelSubscription } from "@/lib/paypal";
+import { useRouter } from "next/navigation";
+import { useState } from "react";
 
 interface SettingsSheetProps {
   isOpen: boolean;
-  onOpenChange: (open: boolean) => void;
+  onClose: () => void;
+  subscription: {
+    plan: string;
+    questionsUsed: number;
+    documentsUsed: number;
+    questionsPerMonth: number;
+    documentsPerMonth: number;
+    validUntil: Date;
+  } | null;
 }
 
-const SUBSCRIPTION_PLANS: SubscriptionPlan[] = [
-  {
-    id: "free",
-    name: "Free",
-    description: "Basic features for personal use",
-    price: 0,
-    features: ["5 documents per month", "100 questions per month"],
-    documentsPerMonth: 5,
-    questionsPerMonth: 100,
-  },
-  {
-    id: "pro",
-    name: "Pro",
-    description: "Advanced features for professionals",
-    price: 10,
-    features: ["Unlimited documents", "Unlimited questions"],
-    documentsPerMonth: -1,
-    questionsPerMonth: -1,
-  },
-];
-
-const SettingsSheet: React.FC<SettingsSheetProps> = ({
+export function SettingsSheet({
   isOpen,
-  onOpenChange,
-}) => {
-  const { user, logout } = useAuth();
-  const [loading, setLoading] = React.useState(false);
+  onClose,
+  subscription,
+}: SettingsSheetProps) {
+  const router = useRouter();
+  const [loading, setLoading] = useState(false);
 
-  const currentPlan =
-    SUBSCRIPTION_PLANS.find((plan) => plan.id === user?.subscription?.plan) ||
-    SUBSCRIPTION_PLANS[0];
-
-  const handleLogout = () => {
-    logout();
-    onOpenChange(false); // Close the settings sheet after logout
-    window.location.href = "/"; // Redirect to home page
-  };
-
-  const handleUpgrade = async (planId: string) => {
-    if (!user) {
-      toast.error("Please sign in to subscribe");
-      return;
-    }
-
+  const handleCancelSubscription = async () => {
     try {
       setLoading(true);
-      const response = await fetch("/api/subscriptions", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          userId: user.id,
-          planId,
-        }),
+      await cancelSubscription(subscription?.plan || "");
+
+      toast({
+        title: "Subscription cancelled",
+        description: "Your subscription has been cancelled successfully",
       });
 
-      const data = await response.json();
-
-      if (data.url) {
-        // Redirect to Stripe Checkout
-        window.location.href = data.url;
-      } else if (data.success) {
-        // Handle free plan subscription
-        toast.success("Successfully subscribed to free plan!");
-        onOpenChange(false); // Close the settings sheet
-      }
+      router.refresh();
+      onClose();
     } catch (error) {
-      console.error("Error:", error);
-      toast.error("Failed to process subscription");
+      console.error("Error cancelling subscription:", error);
+      toast({
+        title: "Error cancelling subscription",
+        description: "Please try again later",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleUpgradeSubscription = async (subscriptionId: string) => {
+    try {
+      setLoading(true);
+      await activateSubscription(subscriptionId);
+
+      toast({
+        title: "Subscription upgraded",
+        description: "Your subscription has been upgraded successfully",
+      });
+
+      router.refresh();
+      onClose();
+    } catch (error) {
+      console.error("Error upgrading subscription:", error);
+      toast({
+        title: "Error upgrading subscription",
+        description: "Please try again later",
+        variant: "destructive",
+      });
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <Sheet open={isOpen} onOpenChange={onOpenChange}>
-      <SheetContent
-        side="right"
-        className="w-full sm:w-[540px] overflow-hidden flex flex-col"
-      >
-        <SheetHeader className="flex flex-row justify-between items-center">
+    <Sheet open={isOpen} onOpenChange={onClose}>
+      <SheetContent>
+        <SheetHeader>
           <SheetTitle>Settings</SheetTitle>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={handleLogout}
-            className="h-8 w-8"
-            title="Logout"
-          >
-            <LogOut className="h-4 w-4" />
-          </Button>
         </SheetHeader>
 
-        <div className="flex-1 overflow-y-auto space-y-6 py-6">
-          {/* Profile Section */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <User className="h-5 w-5" />
-                Profile
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex items-center gap-4">
-                <div className="h-16 w-16 rounded-full bg-indigo-100 flex items-center justify-center">
-                  <span className="text-2xl font-bold text-indigo-600">
-                    {user?.name?.[0] || user?.email?.[0]?.toUpperCase()}
-                  </span>
-                </div>
-                <div>
-                  <h3 className="font-medium">{user?.name}</h3>
-                  <p className="text-sm text-gray-500">{user?.email}</p>
-                </div>
+        <div className="py-6">
+          <h3 className="font-medium mb-4">Subscription Details</h3>
+          {subscription ? (
+            <div className="space-y-4">
+              <div>
+                <p className="text-sm text-muted-foreground">Current Plan</p>
+                <p className="font-medium">{subscription.plan}</p>
               </div>
-            </CardContent>
-          </Card>
-
-          {/* Current Plan Section */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Crown className="h-5 w-5" />
-                Current Plan
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h3 className="font-medium">{currentPlan.name}</h3>
-                  <p className="text-sm text-gray-500">
-                    {currentPlan.description}
-                  </p>
-                </div>
-                <Badge variant="secondary">${currentPlan.price}/month</Badge>
+              <div>
+                <p className="text-sm text-muted-foreground">Usage</p>
+                <ul className="list-disc list-inside space-y-1">
+                  <li>
+                    Documents: {subscription.documentsUsed}/
+                    {subscription.documentsPerMonth === -1
+                      ? "∞"
+                      : subscription.documentsPerMonth}
+                  </li>
+                  <li>
+                    Questions: {subscription.questionsUsed}/
+                    {subscription.questionsPerMonth === -1
+                      ? "∞"
+                      : subscription.questionsPerMonth}
+                  </li>
+                </ul>
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">Valid Until</p>
+                <p className="font-medium">
+                  {new Date(subscription.validUntil).toLocaleDateString()}
+                </p>
               </div>
 
-              {/* Usage Stats */}
-              <div className="space-y-3">
-                <div>
-                  <div className="flex justify-between text-sm mb-1">
-                    <span>Questions Used</span>
-                    <span>
-                      {user?.subscription?.questionsUsed ?? 0}/
-                      {currentPlan.questionsPerMonth === -1
-                        ? "∞"
-                        : currentPlan.questionsPerMonth}
-                    </span>
-                  </div>
-                  <Progress
-                    value={
-                      ((user?.subscription?.questionsUsed ?? 0) /
-                        (currentPlan.questionsPerMonth || 1)) *
-                      100
-                    }
-                  />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Available Plans */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Package className="h-5 w-5" />
-                Available Plans
-              </CardTitle>
-              <CardDescription>
-                Choose the plan that best fits your needs
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {SUBSCRIPTION_PLANS.map((plan) => (
-                <div
-                  key={plan.id}
-                  className="flex items-center justify-between p-4 border rounded-lg hover:border-blue-500 transition-colors duration-200"
-                >
-                  <div>
-                    <h4 className="font-medium">{plan.name}</h4>
-                    <p className="text-sm text-gray-500">${plan.price}/month</p>
-                    <ul className="text-sm text-gray-500 mt-2">
-                      {plan.features.map((feature, index) => (
-                        <li key={index}>• {feature}</li>
-                      ))}
-                    </ul>
-                  </div>
+              {subscription.plan !== "Free" && (
+                <div className="pt-4">
                   <Button
-                    onClick={() => handleUpgrade(plan.id)}
-                    disabled={loading || plan.id === user?.subscription?.plan}
-                    variant={
-                      plan.id === user?.subscription?.plan
-                        ? "secondary"
-                        : "default"
-                    }
-                    className="min-w-[100px]"
+                    variant="destructive"
+                    onClick={handleCancelSubscription}
+                    disabled={loading}
+                    className="w-full"
                   >
-                    {loading ? (
-                      <div className="flex items-center">
-                        <span className="animate-spin mr-2">⚪</span>
-                        Processing...
-                      </div>
-                    ) : plan.id === user?.subscription?.plan ? (
-                      "Current Plan"
-                    ) : (
-                      "Upgrade"
-                    )}
+                    Cancel Subscription
                   </Button>
                 </div>
-              ))}
-            </CardContent>
-          </Card>
+              )}
 
-          {/* Payment Methods */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <CreditCard className="h-5 w-5" />
-                Payment Methods
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <Button variant="outline" className="w-full">
-                Manage Payment Methods
-              </Button>
-            </CardContent>
-          </Card>
+              {subscription.plan === "Free" && (
+                <div className="pt-4 space-y-4">
+                  <h4 className="font-medium">Upgrade to Pro</h4>
+                  <PayPalButtons
+                    createSubscription={(data, actions) => {
+                      return actions.subscription.create({
+                        plan_id: process.env.NEXT_PUBLIC_PAYPAL_PRO_PLAN_ID!,
+                      });
+                    }}
+                    onApprove={async (data, actions) => {
+                      if (data.subscriptionID) {
+                        await handleUpgradeSubscription(data.subscriptionID);
+                      }
+                      return Promise.resolve();
+                    }}
+                    onError={(err) => {
+                      console.error("PayPal Error:", err);
+                      toast({
+                        title: "Payment failed",
+                        description: "Please try again later",
+                        variant: "destructive",
+                      });
+                    }}
+                    style={{
+                      layout: "vertical",
+                      color: "blue",
+                    }}
+                    disabled={loading}
+                  />
+                </div>
+              )}
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground">
+              No active subscription found
+            </p>
+          )}
         </div>
       </SheetContent>
     </Sheet>
   );
-};
-
-export default SettingsSheet;
+}
