@@ -1,166 +1,193 @@
-# VirtuHelpX - AI-Powered Chat Platform
+# VirtuHelpX - AI-Powered Document Intelligence Platform
 
-VirtuHelpX is a sophisticated AI-powered chat platform built with Next.js, featuring user authentication, subscription management, and an intelligent AI assistant interface.
+![VirtuHelpX Banner](public/banner.png)
 
-## 🚀 Features
+VirtuHelpX is a sophisticated AI-powered document interaction platform that enables users to upload, analyze, and interact with documents through an intelligent chat interface. Built with modern technologies and best practices, it offers a subscription-based model with various tiers to suit different needs.
 
-- **AI Chat Assistant**: Intelligent conversational AI powered by advanced language models
-- **Authentication System**: Secure user authentication with JWT
-- **Subscription Management**: Tiered subscription plans with Stripe integration
-- **File Management**: Upload and process documents for AI analysis
-- **Admin Dashboard**: Comprehensive admin controls and analytics
-- **Responsive Design**: Mobile-friendly interface with modern UI components
+## 🌟 Features
 
-## 🛠️ Tech Stack
+- 🤖 **AI-Powered Chat Interface**: Interact with documents using natural language
+- 📄 **Document Management**: Upload and manage various document types
+- 💬 **Intelligent Q&A**: Get instant answers from your documents
+- 🔒 **Secure Authentication**: Robust user authentication system
+- 💳 **Subscription Plans**: Flexible pricing tiers with different features
+- 📱 **Responsive Design**: Works seamlessly on all devices
+- 🔄 **Real-time Updates**: Instant responses and updates
+- 🎨 **Modern UI**: Beautiful and intuitive user interface
 
-- **Frontend/Backend**: Next.js, React, TypeScript, Tailwind CSS
-- **Database**: PostgreSQL
-- **Authentication**: JWT, Custom Auth System
-- **Payment Processing**: Stripe
-- **AI Integration**: OpenAI API
-- **UI Components**: Radix UI, Lucide Icons
+## 🚀 Tech Stack
+
+- **Frontend**:
+
+  - Next.js 14 (App Router)
+  - TypeScript
+  - Tailwind CSS
+  - shadcn/ui Components
+  - React Markdown
+
+- **Backend**:
+
+  - Next.js API Routes
+  - Prisma ORM
+  - PostgreSQL
+  - OpenAI API
+
+- **Authentication & Payments**:
+  - NextAuth.js
+  - PayPal Integration
+  - JWT Tokens
 
 ## 📋 Prerequisites
 
-Before you begin, ensure you have:
+Before you begin, ensure you have the following installed:
 
-- Node.js (v16 or higher)
-- PostgreSQL database
-- Stripe account for payments
-- OpenAI API key
+- Node.js (v18.17 or higher)
+- npm or yarn
+- PostgreSQL
+- Git
 
-## 🔧 Installation
+## 🛠️ Installation
 
-1. Clone the repository:
+1. **Clone the repository**
 
-```bash
-git clone https://github.com/RaheesAhmed/InsightForge-AI.git
-cd InsightForge-AI
-```
+   ```bash
+   git clone https://github.com/RaheesAhmed/virtuhelp-x.git
+   cd virtuhelp-x
+   ```
 
-2. Install dependencies:
+2. **Install dependencies**
 
-```bash
-npm install
-```
+   ```bash
+   npm install
+   # or
+   yarn install
+   ```
 
-3. Set up environment variables:
-   Create a `.env` file in the root directory with:
+3. **Set up environment variables**
+   Create a `.env` file in the root directory with the following variables:
 
-```env
-# JWT Configuration
-JWT_SECRET=
+   ```env
+   #JWT SECRET
+   JWT_SECRET=
+   ```
 
-# NextAuth Configuration
+#NEXTAUTH
 NEXTAUTH_SECRET=
-NEXTAUTH_URL=
+#Next Auth URL
+NEXTAUTH_URL=http://localhost:3000
 
-# Clerk Authentication
+#Clerk
 NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=
 CLERK_SECRET_KEY=
-NEXT_PUBLIC_CLERK_SIGN_IN_URL=
-NEXT_PUBLIC_CLERK_SIGN_UP_URL=
-NEXT_PUBLIC_CLERK_AFTER_SIGN_IN_URL=
-NEXT_PUBLIC_CLERK_AFTER_SIGN_UP_URL=
-NEXT_REDIRECT_URL=
+NEXT_PUBLIC_CLERK_SIGN_IN_URL=/sign-in
+NEXT_PUBLIC_CLERK_SIGN_UP_URL=/sign-up
+NEXT_PUBLIC_CLERK_AFTER_SIGN_IN_URL=/chat
+NEXT_PUBLIC_CLERK_AFTER_SIGN_UP_URL=/verify-email
+NEXT_REDIRECT_URL=/chat
 
-# OpenAI Configuration
+#OpenAI
 OPENAI_API_KEY=
 OPENAI_ASSISTANT_ID=
 OPENAI_VECTOR_STORE_ID=
 
-# Stripe Configuration
-NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=
-NEXT_PUBLIC_STRIPE_SECRET_KEY=
+#Debug
+DEBUG="prisma:\*"
 
-# Database Configuration
+#Database
 DATABASE_URL=
+
 DIRECT_URL=
 
-# Debug Configuration
-DEBUG=
+DEBUG="prisma:\*"
 
-# Admin Configuration
-ADMIN_USER_IDS=
+#Paypal
+NEXT_PUBLIC_PAYPAL_CLIENT_ID=
 
+PAYPAL_CLIENT_ID=
+PAYPAL_SECRET_KEY=
 
-```
+#PayPal Plan IDs
+NEXT_PUBLIC_PAYPAL_BASIC_PLAN_ID=
+NEXT_PUBLIC_PAYPAL_PREMIUM_PLAN_ID=
+NEXT_PUBLIC_PAYPAL_ENTERPRISE_PLAN_ID=
 
-4. Run database migrations:
+````
+
+4. **Set up the database**
 
 ```bash
-npx prisma migrate dev
-```
+npx prisma generate
+npx prisma db push
+````
 
-5. Start the development server:
+5. **Run the development server**
 
-```bash
-npm run dev
-```
+   ```bash
+   npm run dev
+   # or
+   yarn dev
+   ```
 
-## 🏗️ Project Structure
+6. **Open your browser**
+   Navigate to `http://localhost:3000`
 
-```
-virtuHelpX/
-├── app/
-│   ├── (auth)/           # Authentication routes
-│   ├── (main)/           # Main application routes
-│   └── api/              # API endpoints
-├── components/
-│   ├── ui/               # Reusable UI components
-│   └── ...               # Feature-specific components
-├── lib/                  # Utility functions and configurations
-├── hooks/                # Custom React hooks
-└── prisma/              # Database schema and migrations
-```
+## 💎 Subscription Plans
 
-## 🔐 API Endpoints
+### Free Plan ($0/month)
 
-### Authentication
+- 3 preloaded documents
+- 3 self-uploaded documents
+- Unlimited questions
+- Basic summaries
 
-```
-POST /api/users/login     # User login
-POST /api/users/register  # User registration
-```
+### Starter Plan ($9.99/month)
 
-### Subscriptions
+- 5 preloaded documents
+- 7 self-uploaded documents
+- Advanced summaries
+- Email support
 
-```
-GET  /api/subscriptions/plans    # Get available plans
-POST /api/subscriptions         # Create/update subscription
-POST /api/subscriptions/usage   # Track usage
-```
+### Pro Plan ($29.99/month)
 
-### AI Assistant
+- 20 documents
+- AI-powered insights
+- Cloud storage integrations
+- Priority support
 
-```
-POST /api/assistants/files              # Upload files
-GET  /api/assistants/threads            # Get chat threads
-POST /api/assistants/threads/{id}/messages  # Send messages
-```
+### Enterprise Plan ($59.99/month)
 
-## 💳 Subscription Plans
+- Unlimited documents
+- Team collaboration
+- Custom branding
+- API access
 
-- **Free Tier**
+## 🔧 Usage
 
-  - Limited document uploads
-  - Basic chat functionality
-  - Standard support
+1. **Sign Up/Login**
 
-- **Premium Tier**
-  - Unlimited documents
-  - Advanced AI features
-  - Priority support
-  - Custom integrations
+   - Create an account or login
+   - Choose your subscription plan
 
-## 🔒 Security Features
+2. **Upload Documents**
 
-- JWT-based authentication
-- Secure password hashing
-- Protected API routes
-- Rate limiting
-- Stripe payment security
-- Data encryption
+   - Click the upload button in the dashboard
+   - Select documents (supported formats: PDF, DOCX, TXT)
+   - Wait for processing
+
+3. **Chat Interface**
+
+   - Navigate to the chat section
+   - Ask questions about your documents
+   - Get AI-powered responses
+
+4. **Manage Subscription**
+   - Access subscription settings
+   - Upgrade/downgrade plan
+   - View usage statistics
+
+## 📚 API Documentation
+
+API documentation is available at [API.md](API.md) when running the development server.
 
 ## 🤝 Contributing
 
@@ -174,21 +201,9 @@ POST /api/assistants/threads/{id}/messages  # Send messages
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
-## 👥 Authors
+## 🌟 Acknowledgments
 
-- **Rahees Ahmed** - _Initial work_ - [RaheesAhmed](https://github.com/RaheesAhmed)
-
-## 🙏 Acknowledgments
-
-- OpenAI for AI capabilities
-- Stripe for payment processing
-- Next.js team for the amazing framework
-- All contributors who have helped shape this project
-
-## 📞 Support
-
-For support, email support@virtuhelpx.com or join our Slack channel.
+- OpenAI for their powerful API
+- The Next.js team for the amazing framework
 
 ---
-
-Built with ❤️ by the VirtuHelpX Team
