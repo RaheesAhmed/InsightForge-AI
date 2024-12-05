@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs";
 import { db } from "@/lib/db";
 import { getPayPalAccessToken } from "@/lib/paypal";
+import { Plan, Status } from "@prisma/client";
 
 export async function GET(req: NextRequest) {
   try {
@@ -31,13 +32,13 @@ export async function GET(req: NextRequest) {
     if (!subscription) {
       // Return free plan details if no subscription exists
       return NextResponse.json({
-        plan: "Free",
+        plan: Plan.FREE,
         documentsLimit: 3,
         questionsLimit: 20,
         documentsUsed: 0,
         questionsUsed: 0,
         validUntil: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days from now
-        status: "ACTIVE",
+        status: Status.ACTIVE,
         planId: null,
       });
     }
@@ -52,30 +53,30 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     const { userId } = auth();
-    const { subscriptionId, plan } = await req.json();
+    const { paypalId, plan } = await req.json();
 
     if (!userId) {
       return new NextResponse("Unauthorized", { status: 401 });
     }
 
-    if (!subscriptionId || !plan) {
+    if (!paypalId || !plan) {
       return new NextResponse("Missing required fields", { status: 400 });
     }
 
     // Set plan limits based on the selected plan
     const planLimits: Record<
-      string,
+      Plan,
       { documentsLimit: number; questionsLimit: number }
     > = {
-      Free: {
+      [Plan.FREE]: {
         documentsLimit: 3,
         questionsLimit: 20,
       },
-      Professional: {
+      [Plan.PROFESSIONAL]: {
         documentsLimit: 25,
         questionsLimit: 100,
       },
-      Enterprise: {
+      [Plan.ENTERPRISE]: {
         documentsLimit: -1, // Unlimited
         questionsLimit: -1, // Unlimited
       },
@@ -89,7 +90,7 @@ export async function POST(req: NextRequest) {
     try {
       const accessToken = await getPayPalAccessToken();
       const response = await fetch(
-        `https://api-m.sandbox.paypal.com/v1/billing/subscriptions/${subscriptionId}`,
+        `https://api-m.sandbox.paypal.com/v1/billing/subscriptions/${paypalId}`,
         {
           headers: {
             Authorization: `Bearer ${accessToken}`,
@@ -108,19 +109,17 @@ export async function POST(req: NextRequest) {
       const paypalSubscription = await response.json();
 
       // Map PayPal status to our status
-      const statusMap: Record<
-        string,
-        "ACTIVE" | "CANCELLED" | "SUSPENDED" | "PAYMENT_FAILED"
-      > = {
-        ACTIVE: "ACTIVE",
-        CANCELLED: "CANCELLED",
-        SUSPENDED: "SUSPENDED",
-        APPROVAL_PENDING: "PAYMENT_FAILED",
-        APPROVED: "ACTIVE",
-        EXPIRED: "CANCELLED",
+      const statusMap: Record<string, Status> = {
+        ACTIVE: Status.ACTIVE,
+        CANCELLED: Status.CANCELLED,
+        SUSPENDED: Status.SUSPENDED,
+        APPROVAL_PENDING: Status.PAYMENT_FAILED,
+        APPROVED: Status.ACTIVE,
+        EXPIRED: Status.CANCELLED,
       };
 
-      const status = statusMap[paypalSubscription.status] || "PAYMENT_FAILED";
+      const status =
+        statusMap[paypalSubscription.status] || Status.PAYMENT_FAILED;
 
       // Update or create subscription in database
       const updatedSubscription = await db.subscription.upsert({
@@ -128,10 +127,10 @@ export async function POST(req: NextRequest) {
           userId,
         },
         update: {
-          plan,
-          subscriptionId,
-          documentsLimit: planLimits[plan].documentsLimit,
-          questionsLimit: planLimits[plan].questionsLimit,
+          plan: plan as Plan,
+          paypalId,
+          documentsLimit: planLimits[plan as Plan].documentsLimit,
+          questionsLimit: planLimits[plan as Plan].questionsLimit,
           validUntil: new Date(
             paypalSubscription.billing_info.next_billing_time
           ),
@@ -139,10 +138,10 @@ export async function POST(req: NextRequest) {
         },
         create: {
           userId,
-          plan,
-          subscriptionId,
-          documentsLimit: planLimits[plan].documentsLimit,
-          questionsLimit: planLimits[plan].questionsLimit,
+          plan: plan as Plan,
+          paypalId,
+          documentsLimit: planLimits[plan as Plan].documentsLimit,
+          questionsLimit: planLimits[plan as Plan].questionsLimit,
           documentsUsed: 0,
           questionsUsed: 0,
           validUntil: new Date(

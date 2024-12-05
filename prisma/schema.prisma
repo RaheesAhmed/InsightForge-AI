@@ -34,19 +34,20 @@ model Subscription {
   id              String            @id @default(cuid())
   userId          String            @unique
   user            User              @relation(fields: [userId], references: [id])
-  plan            String            @default("Free")
-  subscriptionId  String?           // PayPal subscription ID
+  plan            Plan              @default(FREE)
+  paypalId        String?           // PayPal subscription ID
   documentsLimit  Int               @default(3)
   questionsLimit  Int               @default(20)
   documentsUsed   Int               @default(0)
   questionsUsed   Int               @default(0)
   validUntil      DateTime
-  status          SubscriptionStatus @default(ACTIVE)
+  status          Status            @default(ACTIVE)
   createdAt       DateTime          @default(now())
   updatedAt       DateTime          @updatedAt
   payments        Payment[]
 
   @@index([userId])
+  @@index([paypalId])
 }
 
 enum PaymentStatus {
@@ -101,8 +102,7 @@ enum Role {
 
 enum Plan {
   FREE
-  BASIC
-  PREMIUM
+  PROFESSIONAL
   ENTERPRISE
 }
 
