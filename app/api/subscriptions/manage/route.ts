@@ -1,9 +1,9 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs";
 import { db } from "@/lib/db";
 import { getPayPalAccessToken } from "@/lib/paypal";
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   try {
     const { userId } = auth();
 
@@ -16,6 +16,16 @@ export async function GET() {
       where: {
         userId,
       },
+      select: {
+        id: true,
+        plan: true,
+        documentsLimit: true,
+        questionsLimit: true,
+        documentsUsed: true,
+        questionsUsed: true,
+        validUntil: true,
+        status: true,
+      },
     });
 
     if (!subscription) {
@@ -27,6 +37,7 @@ export async function GET() {
         documentsUsed: 0,
         questionsUsed: 0,
         validUntil: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days from now
+        status: "ACTIVE",
         planId: null,
       });
     }
@@ -38,7 +49,7 @@ export async function GET() {
   }
 }
 
-export async function POST(req: Request) {
+export async function POST(req: NextRequest) {
   try {
     const { userId } = auth();
     const { subscriptionId, plan } = await req.json();
@@ -94,11 +105,22 @@ export async function POST(req: Request) {
         });
       }
 
-      const subscription = await response.json();
+      const paypalSubscription = await response.json();
 
-      if (subscription.status !== "ACTIVE") {
-        return new NextResponse("Subscription is not active", { status: 400 });
-      }
+      // Map PayPal status to our status
+      const statusMap: Record<
+        string,
+        "ACTIVE" | "CANCELLED" | "SUSPENDED" | "PAYMENT_FAILED"
+      > = {
+        ACTIVE: "ACTIVE",
+        CANCELLED: "CANCELLED",
+        SUSPENDED: "SUSPENDED",
+        APPROVAL_PENDING: "PAYMENT_FAILED",
+        APPROVED: "ACTIVE",
+        EXPIRED: "CANCELLED",
+      };
+
+      const status = statusMap[paypalSubscription.status] || "PAYMENT_FAILED";
 
       // Update or create subscription in database
       const updatedSubscription = await db.subscription.upsert({
@@ -110,7 +132,10 @@ export async function POST(req: Request) {
           subscriptionId,
           documentsLimit: planLimits[plan].documentsLimit,
           questionsLimit: planLimits[plan].questionsLimit,
-          validUntil: new Date(subscription.billing_info.next_billing_time),
+          validUntil: new Date(
+            paypalSubscription.billing_info.next_billing_time
+          ),
+          status,
         },
         create: {
           userId,
@@ -120,7 +145,10 @@ export async function POST(req: Request) {
           questionsLimit: planLimits[plan].questionsLimit,
           documentsUsed: 0,
           questionsUsed: 0,
-          validUntil: new Date(subscription.billing_info.next_billing_time),
+          validUntil: new Date(
+            paypalSubscription.billing_info.next_billing_time
+          ),
+          status,
         },
       });
 

@@ -1,4 +1,4 @@
-import { PayPalScriptOptions } from "@paypal/react-paypal-js";
+import { ReactPayPalScriptOptions } from "@paypal/react-paypal-js";
 
 export interface PlanData {
   name: string;
@@ -9,12 +9,16 @@ export interface PlanData {
   questionsLimit?: number;
 }
 
-if (!process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID) {
-  throw new Error("NEXT_PUBLIC_PAYPAL_CLIENT_ID is not defined");
+const PAYPAL_CLIENT_ID = process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID;
+
+if (!PAYPAL_CLIENT_ID) {
+  throw new Error(
+    "NEXT_PUBLIC_PAYPAL_CLIENT_ID is not defined in environment variables"
+  );
 }
 
-export const paypalConfig: PayPalScriptOptions = {
-  clientId: process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID,
+export const paypalConfig: ReactPayPalScriptOptions = {
+  "client-id": PAYPAL_CLIENT_ID,
   currency: "USD",
   intent: "subscription",
   vault: true,
@@ -48,117 +52,6 @@ export async function getPayPalAccessToken() {
 
   const data = await response.json();
   return data.access_token;
-}
-
-export async function createSubscriptionPlan(planData: PlanData) {
-  const accessToken = await getPayPalAccessToken();
-
-  // Create product first
-  const productResponse = await fetch(
-    "https://api-m.sandbox.paypal.com/v1/catalogs/products",
-    {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${accessToken}`,
-      },
-      body: JSON.stringify({
-        name: planData.name,
-        description: planData.description,
-        type: "SERVICE",
-      }),
-    }
-  );
-
-  const product = await productResponse.json();
-
-  // Then create billing plan
-  const planResponse = await fetch(
-    "https://api-m.sandbox.paypal.com/v1/billing/plans",
-    {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${accessToken}`,
-      },
-      body: JSON.stringify({
-        product_id: product.id,
-        name: planData.name,
-        description: planData.description,
-        status: "ACTIVE",
-        billing_cycles: [
-          {
-            frequency: {
-              interval_unit: planData.interval || "MONTH",
-              interval_count: 1,
-            },
-            tenure_type: "REGULAR",
-            sequence: 1,
-            total_cycles: 0,
-            pricing_scheme: {
-              fixed_price: {
-                value: planData.price.toString(),
-                currency_code: "USD",
-              },
-            },
-          },
-        ],
-        payment_preferences: {
-          auto_bill_outstanding: true,
-          setup_fee: {
-            value: "0",
-            currency_code: "USD",
-          },
-          setup_fee_failure_action: "CONTINUE",
-          payment_failure_threshold: 3,
-        },
-        taxes: {
-          percentage: "0",
-          inclusive: false,
-        },
-      }),
-    }
-  );
-
-  return planResponse.json();
-}
-
-export async function getSubscriptionDetails(subscriptionId: string) {
-  const accessToken = await getPayPalAccessToken();
-
-  const response = await fetch(
-    `https://api-m.sandbox.paypal.com/v1/billing/subscriptions/${subscriptionId}`,
-    {
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-      },
-    }
-  );
-
-  return response.json();
-}
-
-export async function cancelSubscription(
-  subscriptionId: string,
-  reason?: string
-) {
-  const accessToken = await getPayPalAccessToken();
-
-  const response = await fetch(
-    `https://api-m.sandbox.paypal.com/v1/billing/subscriptions/${subscriptionId}/cancel`,
-    {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${accessToken}`,
-      },
-      body: JSON.stringify({
-        reason: reason || "Customer requested cancellation",
-      }),
-    }
-  );
-
-  return response.status === 204;
 }
 
 export async function activateSubscription(subscriptionId: string) {

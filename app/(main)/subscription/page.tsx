@@ -25,7 +25,7 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { motion } from "framer-motion";
-import { useAuth } from "@/lib/useAuth";
+import { useAuth, useUser, RedirectToSignIn } from "@clerk/nextjs";
 import { PayPalButtons } from "@paypal/react-paypal-js";
 import { activateSubscription } from "@/lib/paypal";
 
@@ -46,20 +46,7 @@ interface Subscription {
   planId: string | null;
 }
 
-interface Plan {
-  id: string;
-  name: string;
-  description: string;
-  price: number;
-  documentsLimit: number;
-  questionsLimit: number;
-  planId: string | null;
-  features: string[];
-  icon: React.ReactNode;
-  color: string;
-}
-
-const plans: Plan[] = [
+const plans = [
   {
     id: "free",
     name: "Free",
@@ -84,7 +71,7 @@ const plans: Plan[] = [
     price: 29.99,
     documentsLimit: 25,
     questionsLimit: 100,
-    planId: process.env.NEXT_PUBLIC_PAYPAL_PRO_PLAN_ID!,
+    planId: process.env.NEXT_PUBLIC_PAYPAL_BASIC_PLAN_ID,
     features: [
       "25 documents/month",
       "100 questions/month",
@@ -103,7 +90,7 @@ const plans: Plan[] = [
     price: 99.99,
     documentsLimit: -1,
     questionsLimit: -1,
-    planId: process.env.NEXT_PUBLIC_PAYPAL_ENTERPRISE_PLAN_ID!,
+    planId: process.env.NEXT_PUBLIC_PAYPAL_ENTERPRISE_PLAN_ID,
     features: [
       "Unlimited documents",
       "Unlimited questions",
@@ -125,38 +112,57 @@ export default function SubscriptionPage() {
   const [loading, setLoading] = useState(true);
   const [upgrading, setUpgrading] = useState(false);
   const { toast } = useToast();
+  const { isLoaded, isSignedIn, user: clerkUser } = useUser();
+  const { getToken } = useAuth();
 
   useEffect(() => {
-    fetchUserData();
-    fetchSubscriptionDetails();
-  }, []);
+    console.log("Auth State:", { isLoaded, isSignedIn, user: clerkUser });
+    if (isLoaded && isSignedIn && clerkUser) {
+      fetchUserData();
+      fetchSubscriptionDetails();
+    }
+  }, [isLoaded, isSignedIn, clerkUser]);
 
   const fetchUserData = async () => {
-    const user = await useAuth.getState().user;
-    if (!user) {
-      toast({
-        title: "Error",
-        description: "Please sign in to manage your subscription",
-        variant: "destructive",
-      });
+    console.log("Fetching user data...");
+    if (!clerkUser) {
+      console.log("No clerk user found");
+      setLoading(false);
       return;
     }
 
     setUser({
-      id: user.id || "",
-      name: user.firstName ? `${user.firstName} ${user.lastName || ""}` : "",
-      email: user.emailAddresses[0]?.emailAddress || "",
-      image: user.imageUrl || "",
+      id: clerkUser.id,
+      name: clerkUser.fullName || clerkUser.username || "User",
+      email: clerkUser.primaryEmailAddress?.emailAddress || "",
+      image: clerkUser.imageUrl,
     });
+    console.log("User data set successfully");
   };
 
   const fetchSubscriptionDetails = async () => {
+    if (!clerkUser) {
+      console.log("No clerk user found for subscription details");
+      return;
+    }
+
     try {
-      const response = await fetch("/api/subscriptions/manage");
+      console.log("Fetching subscription details...");
+      const token = await getToken();
+      const response = await fetch("/api/subscriptions/manage", {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
       if (!response.ok) {
+        const error = await response.text();
+        console.error("Subscription API error:", error);
         throw new Error("Failed to fetch subscription details");
       }
+
       const data = await response.json();
+      console.log("Subscription data received:", data);
       setSubscription(data);
     } catch (error) {
       console.error("Error fetching subscription details:", error);
@@ -176,12 +182,14 @@ export default function SubscriptionPage() {
   ) => {
     try {
       setUpgrading(true);
+      const token = await getToken();
 
       // Update subscription in database
       const response = await fetch("/api/subscriptions/manage", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
           subscriptionId,
@@ -214,12 +222,16 @@ export default function SubscriptionPage() {
     }
   };
 
-  if (loading) {
+  if (!isLoaded) {
     return (
       <div className="flex min-h-screen items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin" />
       </div>
     );
+  }
+
+  if (!isSignedIn) {
+    return <RedirectToSignIn />;
   }
 
   return (
