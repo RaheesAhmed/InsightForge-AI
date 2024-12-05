@@ -66,10 +66,10 @@ Before you begin, ensure you have the following installed:
 3. **Set up environment variables**
    Create a `.env` file in the root directory with the following variables:
 
-   ```env
-   #JWT SECRET
-   JWT_SECRET=
-   ```
+```
+#JWT SECRET
+JWT_SECRET=
+
 
 #NEXTAUTH
 NEXTAUTH_SECRET=
@@ -111,14 +111,14 @@ NEXT_PUBLIC_PAYPAL_BASIC_PLAN_ID=
 NEXT_PUBLIC_PAYPAL_PREMIUM_PLAN_ID=
 NEXT_PUBLIC_PAYPAL_ENTERPRISE_PLAN_ID=
 
-````
+```
 
 4. **Set up the database**
 
 ```bash
 npx prisma generate
 npx prisma db push
-````
+```
 
 5. **Run the development server**
 
