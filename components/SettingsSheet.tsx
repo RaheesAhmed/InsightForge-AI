@@ -11,8 +11,9 @@ import {
 } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Settings, ArrowRight } from "lucide-react";
+import { Settings, ArrowRight, X } from "lucide-react";
 import { useAuth } from "@/lib/useAuth";
+import { cn } from "@/lib/utils";
 
 interface Subscription {
   plan: string;
@@ -23,11 +24,17 @@ interface Subscription {
   status: string;
 }
 
-export function SettingsSheet() {
+interface SettingsSheetProps {
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+}
+
+export function SettingsSheet({ open, onOpenChange }: SettingsSheetProps) {
   const router = useRouter();
   const { user, logout } = useAuth();
   const [subscription, setSubscription] = useState<Subscription | null>(null);
-  const [isOpen, setIsOpen] = useState(false);
+  const isOpen = open !== undefined ? open : false;
+  const setIsOpen = onOpenChange || (() => {});
 
   useEffect(() => {
     const fetchSubscription = async () => {
@@ -67,6 +74,20 @@ export function SettingsSheet() {
         </Button>
       </SheetTrigger>
       <SheetContent className="w-[400px] bg-[#0A0F1E] border-l border-white/10">
+        <div className="absolute right-4 top-4">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setIsOpen(false)}
+            className={cn(
+              "h-9 w-9 rounded-lg transition-all duration-200",
+              "bg-gradient-to-r from-blue-500/10 to-indigo-500/10 hover:from-blue-500 hover:to-indigo-500",
+              "text-blue-400 hover:text-white border border-blue-500/20"
+            )}
+          >
+            <X className="h-5 w-5" />
+          </Button>
+        </div>
         <SheetHeader>
           <SheetTitle className="text-xl font-bold text-white">
             Settings

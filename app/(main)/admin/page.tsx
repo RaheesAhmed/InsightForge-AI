@@ -202,7 +202,7 @@ function Admin({ sidebarItems }: AdminProps) {
         return <UserManagement />;
       case "Settings":
         return showSettings ? (
-          <SettingsModel />
+          <SettingsModel subscription={subscription} />
         ) : (
           <EditAssistantCard onClick={toggleSettings} />
         );

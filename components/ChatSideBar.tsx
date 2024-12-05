@@ -65,6 +65,7 @@ export function ChatSideBar({
 }: ChatSideBarProps) {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const { user } = useAuth();
 
   return (
@@ -171,6 +172,7 @@ export function ChatSideBar({
                     "bg-gradient-to-r from-blue-500/10 to-indigo-500/10 hover:from-blue-500 hover:to-indigo-500",
                     "text-blue-400 hover:text-white border border-blue-500/20"
                   )}
+                  onClick={() => setIsSettingsOpen(true)}
                 >
                   <Settings className="h-5 w-5" />
                 </Button>
@@ -236,6 +238,9 @@ export function ChatSideBar({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Settings Sheet */}
+      <SettingsSheet open={isSettingsOpen} onOpenChange={setIsSettingsOpen} />
     </TooltipProvider>
   );
 }
