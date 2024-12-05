@@ -1,15 +1,27 @@
--- First, create a temporary type for the new enum
-CREATE TYPE "Plan_new" AS ENUM ('FREE', 'PROFESSIONAL', 'ENTERPRISE');
+-- Step 1: Create a temporary column
+ALTER TABLE "Subscription" ADD COLUMN temp_plan text;
 
--- Update existing records
+-- Step 2: Copy data to the temporary column with the mapping
 UPDATE "Subscription"
-SET plan = CASE 
-    WHEN plan = 'BASIC' THEN 'PROFESSIONAL'
-    WHEN plan = 'PREMIUM' THEN 'ENTERPRISE'
-    ELSE plan
-END::text;
+SET temp_plan = CASE 
+    WHEN plan::text = 'BASIC' THEN 'PROFESSIONAL'
+    WHEN plan::text = 'PREMIUM' THEN 'ENTERPRISE'
+    ELSE plan::text
+END;
 
--- Drop the old type and rename the new one
-ALTER TABLE "Subscription" ALTER COLUMN plan TYPE "Plan_new" USING (plan::text::"Plan_new");
-DROP TYPE IF EXISTS "Plan";
-ALTER TYPE "Plan_new" RENAME TO "Plan"; 
+-- Step 3: Drop the original column and type
+ALTER TABLE "Subscription" DROP COLUMN plan;
+DROP TYPE "Plan";
+
+-- Step 4: Create the new enum type
+CREATE TYPE "Plan" AS ENUM ('FREE', 'PROFESSIONAL', 'ENTERPRISE');
+
+-- Step 5: Add the new column with the correct type and default
+ALTER TABLE "Subscription" ADD COLUMN plan "Plan" NOT NULL DEFAULT 'FREE';
+
+-- Step 6: Copy data from temporary column
+UPDATE "Subscription"
+SET plan = temp_plan::"Plan";
+
+-- Step 7: Drop the temporary column
+ALTER TABLE "Subscription" DROP COLUMN temp_plan; 

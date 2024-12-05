@@ -34,7 +34,7 @@ model Subscription {
   id              String            @id @default(cuid())
   userId          String            @unique
   user            User              @relation(fields: [userId], references: [id])
-  plan            Plan              @default(FREE)
+  plan            Plan              // Temporarily removing @default(FREE)
   paypalId        String?           // PayPal subscription ID
   documentsLimit  Int               @default(3)
   questionsLimit  Int               @default(20)
