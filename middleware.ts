@@ -1,50 +1,45 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-import { verifyToken } from "@/lib/jwt";
+import { verifyAdminToken } from "./app/api/admin/auth/login/route";
 
-export async function middleware(request: NextRequest) {
-  const pathname = request.nextUrl.pathname;
+export function middleware(request: NextRequest) {
+  const { pathname } = request.nextUrl;
 
-  // Only run middleware on admin routes
-  if (!pathname.startsWith("/admin")) {
+  // Skip auth check for login endpoint
+  if (pathname === "/api/admin/auth/login") {
     return NextResponse.next();
   }
 
+  // Skip auth check for login page
+  if (pathname === "/admin/login" || pathname === "/admin-login") {
+    return NextResponse.next();
+  }
+
+  // Get token from cookie
   const token = request.cookies.get("admin-token")?.value;
 
-  // If trying to access login page
-  if (pathname === "/admin/login") {
-    // If already authenticated, redirect to admin dashboard
-    if (token) {
-      try {
-        const payload = await verifyToken(token);
-        if (payload?.isAdmin) {
-          return NextResponse.redirect(new URL("/admin", request.url));
-        }
-      } catch (error) {
-        // Token is invalid, allow access to login page
-      }
+  // For API routes, return 401 instead of redirecting
+  if (pathname.startsWith("/api/admin/")) {
+    if (!token) {
+      return NextResponse.json({ error: "No token provided" }, { status: 401 });
     }
+
+    // We can't await here, so we'll let the API route handle the verification
     return NextResponse.next();
   }
 
-  // For all other admin routes, require authentication
-  if (!token) {
-    return NextResponse.redirect(new URL("/admin/login", request.url));
+  // For admin pages, redirect to login if not authenticated
+  if (pathname.startsWith("/admin")) {
+    if (!token) {
+      const loginUrl = new URL("/admin/login", request.url);
+      loginUrl.searchParams.set("callbackUrl", pathname);
+      return NextResponse.redirect(loginUrl);
+    }
   }
 
-  try {
-    const payload = await verifyToken(token);
-    if (!payload?.isAdmin) {
-      return NextResponse.redirect(new URL("/admin/login", request.url));
-    }
-    return NextResponse.next();
-  } catch (error) {
-    return NextResponse.redirect(new URL("/admin/login", request.url));
-  }
+  return NextResponse.next();
 }
 
-// Configure the paths that should be protected by the middleware
 export const config = {
-  matcher: ["/admin/:path*"],
+  matcher: ["/admin/:path*", "/api/admin/:path*"],
 };

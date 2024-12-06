@@ -1,84 +1,197 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { verifyJWT } from "@/lib/jwt";
 import { cookies } from "next/headers";
+import { verifyAdminToken } from "../auth/login/route";
+import { Prisma } from "@prisma/client";
 
-export async function GET() {
+export const runtime = "nodejs";
+
+export async function GET(request: Request) {
   try {
-    // Get auth token from cookies
+    // Get token from cookies
     const cookieStore = cookies();
-    const token = cookieStore.get("auth-token")?.value;
+    const token = cookieStore.get("admin-token")?.value;
 
-    if (!token) {
-      return new NextResponse("Unauthorized", { status: 401 });
+    if (!token || !(await verifyAdminToken(token))) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // Verify token and check admin role
-    const payload = await verifyJWT(token);
-    if (!payload || payload.role !== "ADMIN") {
-      return new NextResponse("Forbidden", { status: 403 });
-    }
+    const { searchParams } = new URL(request.url);
+    const page = parseInt(searchParams.get("page") || "1");
+    const limit = parseInt(searchParams.get("limit") || "10");
+    const search = searchParams.get("search") || "";
+    const status = searchParams.get("status");
+    const plan = searchParams.get("plan");
 
-    // Fetch all users with their details
+    // Calculate pagination
+    const skip = (page - 1) * limit;
+
+    // Build where clause
+    const where: Prisma.UserWhereInput = {
+      AND: [
+        // Search condition
+        search
+          ? {
+              OR: [
+                { name: { contains: search, mode: "insensitive" } },
+                { email: { contains: search, mode: "insensitive" } },
+              ],
+            }
+          : {},
+        // Status filter
+        status
+          ? {
+              subscription: {
+                status: {
+                  equals: status.toUpperCase(),
+                },
+              },
+            }
+          : {},
+        // Plan filter
+        plan
+          ? {
+              subscription: {
+                plan: {
+                  equals: plan.toUpperCase(),
+                },
+              },
+            }
+          : {},
+      ],
+    };
+
+    // Get users with pagination
     const users = await prisma.user.findMany({
-      select: {
-        id: true,
-        email: true,
-        name: true,
-        role: true,
-        subscription: {
-          select: {
-            plan: true,
-            status: true,
-            questionsUsed: true,
-            documentsLimit: true,
-            validUntil: true,
+      where,
+      include: {
+        subscription: true,
+        usage: {
+          orderBy: {
+            createdAt: "desc",
           },
+          take: 5, // Get only last 5 usage records
         },
-        createdAt: true,
       },
       orderBy: {
         createdAt: "desc",
       },
+      skip,
+      take: limit,
     });
 
-    // Format user data for response
-    const formattedUsers = users.map((user) => ({
-      id: user.id,
-      email: user.email,
-      name: user.name,
-      role: user.role,
-      subscriptionPlan: user.subscription?.plan || "FREE",
-      subscriptionStatus: user.subscription?.status || "INACTIVE",
-      questionsUsed: user.subscription?.questionsUsed || 0,
-      documentsUploaded: user.subscription?.documentsLimit || 0,
-      createdAt: user.createdAt,
-    }));
+    // Get total count for pagination
+    const total = await prisma.user.count({ where });
 
-    return NextResponse.json(formattedUsers);
+    // Calculate usage statistics for each user
+    const usersWithStats = users.map((user) => {
+      const questions =
+        user.usage?.filter((u) => u.type === "question").length ?? 0;
+      const documents =
+        user.usage?.filter((u) => u.type === "document").length ?? 0;
+
+      return {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        createdAt: user.createdAt,
+        subscription: user.subscription
+          ? {
+              status: user.subscription.status,
+              plan: user.subscription.plan,
+              currentPeriodEnd: user.subscription.currentPeriodEnd,
+            }
+          : null,
+        usage: {
+          questions,
+          documents,
+          questionsLimit: user.subscription?.questionsLimit ?? 0,
+          documentsLimit: user.subscription?.documentsLimit ?? 0,
+          questionsUsed: user.subscription?.questionsUsed ?? 0,
+          documentsUsed: user.subscription?.documentsUsed ?? 0,
+        },
+      };
+    });
+
+    return NextResponse.json({
+      users: usersWithStats,
+      pagination: {
+        page,
+        limit,
+        total,
+        pages: Math.ceil(total / limit),
+      },
+    });
   } catch (error) {
-    console.error("[ADMIN_USERS]", error);
-    return new NextResponse("Internal Error", { status: 500 });
+    console.error("Error fetching users:", error);
+    return NextResponse.json(
+      { error: "Failed to fetch users" },
+      { status: 500 }
+    );
   }
 }
 
-export async function POST(req: Request) {
+export async function PATCH(request: Request) {
   try {
-    // Get auth token from cookies
+    // Get token from cookies
     const cookieStore = cookies();
-    const token = cookieStore.get("auth-token")?.value;
+    const token = cookieStore.get("admin-token")?.value;
 
-    if (!token) {
-      return new NextResponse("Unauthorized", { status: 401 });
+    if (!token || !(await verifyAdminToken(token))) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // Verify token and check admin role
-    const payload = await verifyJWT(token);
-    if (!payload || payload.role !== "ADMIN") {
-      return new NextResponse("Forbidden", { status: 403 });
+    // Get user ID from URL
+    const userId = request.url.split("/").pop();
+    if (!userId) {
+      return NextResponse.json(
+        { error: "User ID is required" },
+        { status: 400 }
+      );
     }
 
-    const body = await req.json();
+    const data = await request.json();
+
+    // Update user
+    const updatedUser = await prisma.user.update({
+      where: { id: userId },
+      data: {
+        ...data,
+        updatedAt: new Date(),
+      },
+      include: {
+        subscription: true,
+        usage: {
+          orderBy: {
+            createdAt: "desc",
+          },
+          take: 5,
+        },
+      },
+    });
+
+    return NextResponse.json(updatedUser);
+  } catch (error) {
+    console.error("Error updating user:", error);
+    return NextResponse.json(
+      { error: "Failed to update user" },
+      { status: 500 }
+    );
+  }
+}
+
+export async function POST(request: Request) {
+  try {
+    // Get token from cookies
+    const cookieStore = cookies();
+    const token = cookieStore.get("admin-token")?.value;
+
+    if (!token || !(await verifyAdminToken(token))) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const body = await request.json();
     const { action, targetUserId, data } = body;
 
     switch (action) {
@@ -96,13 +209,16 @@ export async function POST(req: Request) {
         await prisma.user.delete({
           where: { id: targetUserId },
         });
-        return new NextResponse("User deleted", { status: 200 });
+        return NextResponse.json({ message: "User deleted successfully" });
 
       default:
-        return new NextResponse("Invalid action", { status: 400 });
+        return NextResponse.json({ error: "Invalid action" }, { status: 400 });
     }
   } catch (error) {
-    console.error("[ADMIN_USERS_ACTION]", error);
-    return new NextResponse("Internal Error", { status: 500 });
+    console.error("Error in user action:", error);
+    return NextResponse.json(
+      { error: "Failed to process user action" },
+      { status: 500 }
+    );
   }
 }

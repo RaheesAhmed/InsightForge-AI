@@ -1,4 +1,5 @@
 import { SignJWT, jwtVerify } from "jose";
+import { jwtDecode } from "jwt-decode";
 
 export function getJwtSecretKey() {
   const secret = process.env.JWT_SECRET_KEY;
@@ -25,5 +26,22 @@ export async function verifyToken(token: string) {
     return payload;
   } catch (error) {
     return null;
+  }
+}
+
+export const verifyJWT = verifyToken;
+
+export function isTokenExpired(token: string): boolean {
+  try {
+    const decoded = jwtDecode(token);
+    if (!decoded || typeof decoded !== "object" || !("exp" in decoded)) {
+      return true;
+    }
+    const exp = decoded.exp as number;
+    const currentTime = Math.floor(Date.now() / 1000);
+    return exp < currentTime;
+  } catch (error) {
+    console.error("Error decoding token:", error);
+    return true;
   }
 }
