@@ -21,7 +21,6 @@ import AssistantFunctionsCard from "@/components/AssistantFunctionsCard";
 import { Subscription, SubscriptionPlan } from "@/types/subscription";
 import { ArrowRight, Badge } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { SettingsSheet } from "@/components/SettingsSheet";
 
 type MessageProps = {
   role: "user" | "assistant" | "code";
@@ -507,35 +506,53 @@ const ChatPage = () => {
     }
 
     const messageContent = `${userInput} ${fileInfo}`.trim();
-    setMessages((prev) => [...prev, { role: "user", content: messageContent }]);
 
-    setTimeout(scrollToBottom, 100);
+    try {
+      // Add user message immediately
+      setMessages((prev) => [
+        ...prev,
+        { role: "user", content: messageContent },
+      ]);
 
-    if (activeSessionIndex !== null && messages.length === 0) {
-      const updatedSessions = [...sessions];
-      updatedSessions[activeSessionIndex] = {
-        ...updatedSessions[activeSessionIndex],
-        title:
-          messageContent.slice(0, 30) +
-          (messageContent.length > 30 ? "..." : ""),
-      };
-      setSessions(updatedSessions);
-      localStorage.setItem("chatSessions", JSON.stringify(updatedSessions));
+      // Update session title if it's a new chat
+      if (activeSessionIndex !== null && messages.length === 0) {
+        const updatedSessions = [...sessions];
+        updatedSessions[activeSessionIndex] = {
+          ...updatedSessions[activeSessionIndex],
+          title:
+            messageContent.slice(0, 30) +
+            (messageContent.length > 30 ? "..." : ""),
+        };
+        setSessions(updatedSessions);
+        localStorage.setItem("chatSessions", JSON.stringify(updatedSessions));
+      }
+
+      // Clear inputs before sending
+      setUserInput("");
+      setFileInfo("");
+
+      // Scroll to bottom
+      setTimeout(scrollToBottom, 100);
+
+      // Send the message
+      await sendMessage(messageContent);
+    } catch (error) {
+      console.error("Error in handleSubmit:", error);
+      showError("Failed to send message. Please try again.");
+      // Remove the failed message
+      setMessages((prev) => prev.slice(0, -1));
     }
-
-    setUserInput("");
-    setFileInfo("");
-    sendMessage(messageContent);
   };
 
   const sendMessage = async (text: string) => {
-    if (!threadId) return;
+    if (!threadId) {
+      showError("Chat thread not initialized. Please try again.");
+      return;
+    }
 
     try {
-      // Update question usage before sending message
+      // Update usage before sending
       await updateUsage("question");
-
-      // If there's a file attached, update document usage
       if (fileInfo) {
         await updateUsage("document");
       }
@@ -544,29 +561,44 @@ const ChatPage = () => {
         `/api/assistants/threads/${threadId}/messages`,
         {
           method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
           body: JSON.stringify({ content: text }),
         }
       );
 
-      if (!response.ok) {
+      if (!response.ok || !response.body) {
         throw new Error("Failed to send message");
       }
 
-      if (response.body) {
-        const stream = AssistantStream.fromReadableStream(response.body);
-        handleReadableStream(stream);
-      }
+      // Create stream from response
+      const stream = AssistantStream.fromReadableStream(response.body);
+
+      // Add empty assistant message for streaming
+      appendMessage("assistant", "");
+
+      // Set up stream handlers
+      stream.on("textCreated", () => {
+        // Message already created above
+      });
+
+      stream.on("textDelta", (delta) => {
+        if (delta.value != null) {
+          appendToLastMessage(delta.value);
+        }
+      });
+
+      stream.on("error", (error) => {
+        console.error("Stream error:", error);
+        showError("Error receiving response. Please try again.");
+        // Remove the failed assistant message
+        setMessages((prev) => prev.slice(0, -1));
+      });
     } catch (error) {
       console.error("Error sending message:", error);
-      showError("Failed to send message. Please try again.");
+      throw error;
     }
-  };
-
-  const handleReadableStream = (stream: AssistantStream) => {
-    stream.on("textCreated", () => appendMessage("assistant", ""));
-    stream.on("textDelta", (delta) => {
-      if (delta.value != null) appendToLastMessage(delta.value);
-    });
   };
 
   const appendToLastMessage = (text: string) => {

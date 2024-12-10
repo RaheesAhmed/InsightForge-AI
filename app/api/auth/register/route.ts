@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { db } from "@/lib/db";
 import bcrypt from "bcryptjs";
-import { signJWT } from "@/lib/jwt";
+import { createToken } from "@/lib/jwt";
 import { z } from "zod";
 
 const registerSchema = z.object({
@@ -44,7 +44,7 @@ export async function POST(request: Request) {
       data: {
         name: validatedData.name,
         email: validatedData.email,
-        hashedPassword: hashedPassword,
+        password: hashedPassword,
         role: "USER",
         subscription: {
           create: {
@@ -76,7 +76,7 @@ export async function POST(request: Request) {
     });
 
     // Generate JWT token
-    const token = await signJWT({
+    const token = await createToken({
       userId: user.id,
       email: user.email,
       name: user.name || undefined,
