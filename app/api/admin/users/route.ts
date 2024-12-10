@@ -90,26 +90,44 @@ export async function GET(request: Request) {
       const documents =
         user.usage?.filter((u) => u.type === "document").length ?? 0;
 
+      // Default subscription values if no subscription exists
+      const defaultSubscription = {
+        status: "NONE",
+        plan: "NONE",
+        questionsLimit: 0,
+        documentsLimit: 0,
+        questionsUsed: 0,
+        documentsUsed: 0,
+        currentPeriodEnd: null,
+      };
+
+      // Get actual subscription data if it exists
+      const subscriptionData = user.subscription
+        ? {
+            status: user.subscription.status,
+            plan: user.subscription.plan,
+            questionsLimit: user.subscription.questionsLimit,
+            documentsLimit: user.subscription.documentsLimit,
+            questionsUsed: user.subscription.questionsUsed,
+            documentsUsed: user.subscription.documentsUsed,
+            currentPeriodEnd: user.subscription.currentPeriodEnd,
+          }
+        : defaultSubscription;
+
       return {
         id: user.id,
         name: user.name,
         email: user.email,
         role: user.role,
         createdAt: user.createdAt,
-        subscription: user.subscription
-          ? {
-              status: user.subscription.status,
-              plan: user.subscription.plan,
-              currentPeriodEnd: user.subscription.currentPeriodEnd,
-            }
-          : null,
+        subscription: subscriptionData,
         usage: {
           questions,
           documents,
-          questionsLimit: user.subscription?.questionsLimit ?? 0,
-          documentsLimit: user.subscription?.documentsLimit ?? 0,
-          questionsUsed: user.subscription?.questionsUsed ?? 0,
-          documentsUsed: user.subscription?.documentsUsed ?? 0,
+          questionsLimit: subscriptionData.questionsLimit,
+          documentsLimit: subscriptionData.documentsLimit,
+          questionsUsed: subscriptionData.questionsUsed,
+          documentsUsed: subscriptionData.documentsUsed,
         },
       };
     });

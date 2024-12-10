@@ -47,20 +47,26 @@ interface User {
     documentsUsed: number;
     documentsLimit: number;
   };
+  subscription?: {
+    plan: "NONE" | "FREE" | "PROFESSIONAL" | "ENTERPRISE";
+    status: "NONE" | "ACTIVE" | "SUSPENDED" | "CANCELLED";
+  };
 }
 
 // Plan badge styles
 const PLAN_STYLES = {
+  NONE: "bg-gray-500/10 text-gray-500 hover:bg-gray-500/20",
   FREE: "bg-gray-500/10 text-gray-500 hover:bg-gray-500/20",
-  PRO: "bg-blue-500/10 text-blue-500 hover:bg-blue-500/20",
+  PROFESSIONAL: "bg-blue-500/10 text-blue-500 hover:bg-blue-500/20",
   ENTERPRISE: "bg-purple-500/10 text-purple-500 hover:bg-purple-500/20",
 } as const;
 
 // Status badge styles
 const STATUS_STYLES = {
+  NONE: "bg-gray-500/10 text-gray-500 hover:bg-gray-500/20",
   ACTIVE: "bg-emerald-500/10 text-emerald-500 hover:bg-emerald-500/20",
   SUSPENDED: "bg-yellow-500/10 text-yellow-500 hover:bg-yellow-500/20",
-  DELETED: "bg-red-500/10 text-red-500 hover:bg-red-500/20",
+  CANCELLED: "bg-red-500/10 text-red-500 hover:bg-red-500/20",
 } as const;
 
 export default function UserManagement() {
@@ -373,19 +379,19 @@ export default function UserManagement() {
                     <TableCell>
                       <Badge
                         className={`${
-                          PLAN_STYLES[user.plan]
+                          PLAN_STYLES[user.subscription?.plan || "NONE"]
                         } border-0 font-medium`}
                       >
-                        {user.plan}
+                        {user.subscription?.plan || "NONE"}
                       </Badge>
                     </TableCell>
                     <TableCell>
                       <Badge
                         className={`${
-                          STATUS_STYLES[user.status]
+                          STATUS_STYLES[user.subscription?.status || "NONE"]
                         } border-0 font-medium`}
                       >
-                        {user.status}
+                        {user.subscription?.status || "NONE"}
                       </Badge>
                     </TableCell>
                     <TableCell>
