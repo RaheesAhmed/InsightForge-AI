@@ -1,6 +1,4 @@
-import React, { useState, useEffect } from "react";
-import { adminApi, User, Payment } from "@/app/(main)/admin/api";
-import { useToast } from "@/hooks/use-toast";
+import { useState, useEffect } from "react";
 import {
   Table,
   TableBody,
@@ -9,62 +7,78 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { Card } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuLabel,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Input } from "@/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Card } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Input } from "@/components/ui/input";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   MoreVertical,
   Search,
-  UserCog,
+  Mail,
+  Ban,
+  Trash2,
+  Shield,
   CreditCard,
-  AlertTriangle,
-  CheckCircle,
-  XCircle,
+  Download,
+  Users,
 } from "lucide-react";
-import { format } from "date-fns";
+import { adminApi } from "@/app/(main)/admin/api";
+import { useToast } from "@/hooks/use-toast";
 
-const ITEMS_PER_PAGE = 10;
+interface User {
+  id: string;
+  email: string;
+  name: string | null;
+  plan: "FREE" | "PRO" | "ENTERPRISE";
+  status: "ACTIVE" | "SUSPENDED" | "DELETED";
+  createdAt: string;
+  usage: {
+    questionsUsed: number;
+    questionsLimit: number;
+    documentsUsed: number;
+    documentsLimit: number;
+  };
+}
+
+// Plan badge styles
+const PLAN_STYLES = {
+  FREE: "bg-gray-500/10 text-gray-500 hover:bg-gray-500/20",
+  PRO: "bg-blue-500/10 text-blue-500 hover:bg-blue-500/20",
+  ENTERPRISE: "bg-purple-500/10 text-purple-500 hover:bg-purple-500/20",
+} as const;
+
+// Status badge styles
+const STATUS_STYLES = {
+  ACTIVE: "bg-emerald-500/10 text-emerald-500 hover:bg-emerald-500/20",
+  SUSPENDED: "bg-yellow-500/10 text-yellow-500 hover:bg-yellow-500/20",
+  DELETED: "bg-red-500/10 text-red-500 hover:bg-red-500/20",
+} as const;
 
 export default function UserManagement() {
   const [users, setUsers] = useState<User[]>([]);
-  const [payments, setPayments] = useState<Payment[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [searchTerm, setSearchTerm] = useState("");
-  const [selectedPlan, setSelectedPlan] = useState("all");
-  const [selectedStatus, setSelectedStatus] = useState("all");
-  const [currentPage, setCurrentPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(1);
-  const [activeTab, setActiveTab] = useState("users");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [selectedUsers, setSelectedUsers] = useState<string[]>([]);
   const { toast } = useToast();
+
+  useEffect(() => {
+    fetchUsers();
+  }, []);
 
   const fetchUsers = async () => {
     try {
       setIsLoading(true);
-      const response = await adminApi.getUsers({
-        search: searchTerm,
-        plan: selectedPlan !== "all" ? selectedPlan : undefined,
-        status: selectedStatus !== "all" ? selectedStatus : undefined,
-        page: currentPage,
-        limit: ITEMS_PER_PAGE,
-      });
+      const response = await adminApi.getUsers();
       setUsers(response.users);
-      setTotalPages(response.totalPages);
     } catch (error) {
       toast({
         title: "Error",
@@ -76,42 +90,35 @@ export default function UserManagement() {
     }
   };
 
-  const fetchPayments = async () => {
-    try {
-      setIsLoading(true);
-      const response = await adminApi.getPayments({
-        page: currentPage,
-        limit: ITEMS_PER_PAGE,
-      });
-      setPayments(response.payments);
-      setTotalPages(response.totalPages);
-    } catch (error) {
-      toast({
-        title: "Error",
-        description: "Failed to fetch payments",
-        variant: "destructive",
-      });
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  // Filter users based on search query
+  const filteredUsers = users.filter((user) => {
+    const searchLower = searchQuery.toLowerCase();
+    return (
+      user.email.toLowerCase().includes(searchLower) ||
+      (user.name?.toLowerCase() || "").includes(searchLower) ||
+      user.plan.toLowerCase().includes(searchLower) ||
+      user.status.toLowerCase().includes(searchLower)
+    );
+  });
 
-  useEffect(() => {
-    if (activeTab === "users") {
+  const handleAction = async (userId: string, action: string) => {
+    try {
+      switch (action) {
+        case "suspend":
+          await adminApi.updateUser(userId, { status: "SUSPENDED" });
+          break;
+        case "activate":
+          await adminApi.updateUser(userId, { status: "ACTIVE" });
+          break;
+        case "delete":
+          await adminApi.updateUser(userId, { status: "DELETED" });
+          break;
+      }
       fetchUsers();
-    } else {
-      fetchPayments();
-    }
-  }, [searchTerm, selectedPlan, selectedStatus, currentPage, activeTab]);
-
-  const handleUpdateUser = async (userId: string, data: Partial<User>) => {
-    try {
-      await adminApi.updateUser(userId, data);
       toast({
         title: "Success",
         description: "User updated successfully",
       });
-      fetchUsers();
     } catch (error) {
       toast({
         title: "Error",
@@ -121,298 +128,360 @@ export default function UserManagement() {
     }
   };
 
-  const handleRefundPayment = async (paymentId: string) => {
+  const handleBulkAction = async (action: string) => {
     try {
-      await adminApi.refundPayment(paymentId);
+      await Promise.all(
+        selectedUsers.map((userId) =>
+          adminApi.updateUser(userId, {
+            status: action.toUpperCase() as "ACTIVE" | "SUSPENDED" | "DELETED",
+          })
+        )
+      );
+      fetchUsers();
+      setSelectedUsers([]);
       toast({
         title: "Success",
-        description: "Payment refunded successfully",
+        description: `Successfully ${action}ed ${selectedUsers.length} users`,
       });
-      fetchPayments();
     } catch (error) {
       toast({
         title: "Error",
-        description: "Failed to refund payment",
+        description: `Failed to ${action} users`,
         variant: "destructive",
       });
     }
   };
 
-  const getPlanBadgeVariant = (plan: string) => {
-    switch (plan) {
-      case "ENTERPRISE":
-        return "default";
-      case "PRO":
-        return "secondary";
-      default:
-        return "outline";
+  const handleExportUsers = async () => {
+    try {
+      const csvContent = [
+        // Header
+        [
+          "Email",
+          "Name",
+          "Plan",
+          "Status",
+          "Questions Used",
+          "Questions Limit",
+          "Documents Used",
+          "Documents Limit",
+          "Created At",
+        ].join(","),
+        // Data
+        ...filteredUsers.map((user) =>
+          [
+            user.email,
+            user.name || "",
+            user.plan,
+            user.status,
+            user.usage.questionsUsed,
+            user.usage.questionsLimit,
+            user.usage.documentsUsed,
+            user.usage.documentsLimit,
+            new Date(user.createdAt).toLocaleDateString(),
+          ].join(",")
+        ),
+      ].join("\n");
+
+      const blob = new Blob([csvContent], { type: "text/csv" });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `users-export-${new Date().toISOString().split("T")[0]}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+
+      toast({
+        title: "Success",
+        description: "Users exported successfully",
+      });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to export users",
+        variant: "destructive",
+      });
     }
   };
 
-  const getStatusBadgeVariant = (status: string) => {
-    switch (status) {
-      case "ACTIVE":
-        return "default";
-      case "SUSPENDED":
-        return "destructive";
-      case "DELETED":
-        return "secondary";
-      default:
-        return "outline";
+  const toggleSelectAll = () => {
+    if (selectedUsers.length === filteredUsers.length) {
+      setSelectedUsers([]);
+    } else {
+      setSelectedUsers(filteredUsers.map((user) => user.id));
     }
   };
 
-  const getPaymentStatusIcon = (status: string) => {
-    switch (status) {
-      case "succeeded":
-        return <CheckCircle className="h-4 w-4 text-green-500" />;
-      case "failed":
-        return <XCircle className="h-4 w-4 text-red-500" />;
-      case "pending":
-        return <AlertTriangle className="h-4 w-4 text-yellow-500" />;
-      default:
-        return <CreditCard className="h-4 w-4 text-gray-500" />;
+  const toggleSelectUser = (userId: string) => {
+    if (selectedUsers.includes(userId)) {
+      setSelectedUsers(selectedUsers.filter((id) => id !== userId));
+    } else {
+      setSelectedUsers([...selectedUsers, userId]);
     }
+  };
+
+  // Calculate usage percentage
+  const getUsagePercentage = (used: number, limit: number) => {
+    return Math.round((used / limit) * 100);
+  };
+
+  // Get color based on usage percentage
+  const getUsageColor = (percentage: number) => {
+    if (percentage >= 90) return "text-red-500";
+    if (percentage >= 75) return "text-yellow-500";
+    return "text-emerald-500";
   };
 
   return (
     <Card className="bg-[#0A0F1E]/50 backdrop-blur-xl border-white/10">
       <div className="p-6">
-        <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <div className="flex items-center justify-between mb-6">
-            <div>
-              <h3 className="text-xl font-bold text-white">User Management</h3>
-              <p className="text-sm text-gray-400">
-                Manage users and payment information
-              </p>
-            </div>
-            <TabsList>
-              <TabsTrigger value="users">Users</TabsTrigger>
-              <TabsTrigger value="payments">Payments</TabsTrigger>
-            </TabsList>
+        <div className="flex items-center justify-between mb-6">
+          <div>
+            <h2 className="text-2xl font-bold text-white">Users</h2>
+            <p className="text-sm text-gray-400">
+              Manage user accounts and permissions
+            </p>
           </div>
-
-          <TabsContent value="users">
-            <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-center gap-4">
+            <div className="relative w-64">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+              <Input
+                placeholder="Search users..."
+                className="pl-10 bg-[#1A2035] border-white/10 text-white w-full"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
+            </div>
+            {selectedUsers.length > 0 && (
               <div className="flex items-center gap-2">
-                <div className="relative">
-                  <Search className="absolute left-2 top-2.5 h-4 w-4 text-gray-500" />
-                  <Input
-                    placeholder="Search users..."
-                    className="pl-8"
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                  />
-                </div>
-                <Select value={selectedPlan} onValueChange={setSelectedPlan}>
-                  <SelectTrigger className="w-[120px]">
-                    <SelectValue placeholder="Plan" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Plans</SelectItem>
-                    <SelectItem value="FREE">Free</SelectItem>
-                    <SelectItem value="PRO">Pro</SelectItem>
-                    <SelectItem value="ENTERPRISE">Enterprise</SelectItem>
-                  </SelectContent>
-                </Select>
-                <Select
-                  value={selectedStatus}
-                  onValueChange={setSelectedStatus}
+                <Button
+                  variant="outline"
+                  className="text-yellow-500 hover:text-yellow-400"
+                  onClick={() => handleBulkAction("suspend")}
                 >
-                  <SelectTrigger className="w-[120px]">
-                    <SelectValue placeholder="Status" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Status</SelectItem>
-                    <SelectItem value="ACTIVE">Active</SelectItem>
-                    <SelectItem value="SUSPENDED">Suspended</SelectItem>
-                    <SelectItem value="DELETED">Deleted</SelectItem>
-                  </SelectContent>
-                </Select>
+                  <Ban className="h-4 w-4 mr-2" />
+                  Suspend Selected
+                </Button>
+                <Button
+                  variant="outline"
+                  className="text-emerald-500 hover:text-emerald-400"
+                  onClick={() => handleBulkAction("activate")}
+                >
+                  <Shield className="h-4 w-4 mr-2" />
+                  Activate Selected
+                </Button>
+                <Button
+                  variant="outline"
+                  className="text-red-500 hover:text-red-400"
+                  onClick={() => handleBulkAction("delete")}
+                >
+                  <Trash2 className="h-4 w-4 mr-2" />
+                  Delete Selected
+                </Button>
               </div>
-            </div>
-
-            <div className="rounded-md border border-white/10">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>User</TableHead>
-                    <TableHead>Plan</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Usage</TableHead>
-                    <TableHead>Joined</TableHead>
-                    <TableHead></TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {users.map((user) => (
-                    <TableRow key={user.id}>
-                      <TableCell>
-                        <div>
-                          <p className="font-medium text-white">{user.email}</p>
-                          {user.name && (
-                            <p className="text-sm text-gray-400">{user.name}</p>
-                          )}
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant={getPlanBadgeVariant(user.plan)}>
-                          {user.plan}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant={getStatusBadgeVariant(user.status)}>
-                          {user.status}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        <div className="text-sm">
-                          <p>
-                            Questions: {user.usage.questionsUsed}/
-                            {user.usage.questionsLimit}
-                          </p>
-                          <p>
-                            Documents: {user.usage.documentsUsed}/
-                            {user.usage.documentsLimit}
-                          </p>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        {format(new Date(user.createdAt), "MMM d, yyyy")}
-                      </TableCell>
-                      <TableCell>
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" className="h-8 w-8 p-0">
-                              <MoreVertical className="h-4 w-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                            <DropdownMenuItem
-                              onClick={() =>
-                                handleUpdateUser(user.id, {
-                                  status:
-                                    user.status === "ACTIVE"
-                                      ? "SUSPENDED"
-                                      : "ACTIVE",
-                                })
-                              }
-                            >
-                              {user.status === "ACTIVE"
-                                ? "Suspend User"
-                                : "Activate User"}
-                            </DropdownMenuItem>
-                            <DropdownMenuItem
-                              onClick={() =>
-                                handleUpdateUser(user.id, {
-                                  plan: "PRO",
-                                })
-                              }
-                            >
-                              Upgrade to Pro
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-          </TabsContent>
-
-          <TabsContent value="payments">
-            <div className="rounded-md border border-white/10">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Date</TableHead>
-                    <TableHead>User</TableHead>
-                    <TableHead>Amount</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Payment Method</TableHead>
-                    <TableHead></TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {payments.map((payment) => (
-                    <TableRow key={payment.id}>
-                      <TableCell>
-                        {format(new Date(payment.createdAt), "MMM d, yyyy")}
-                      </TableCell>
-                      <TableCell>{payment.userId}</TableCell>
-                      <TableCell>
-                        {new Intl.NumberFormat("en-US", {
-                          style: "currency",
-                          currency: payment.currency,
-                        }).format(payment.amount / 100)}
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-2">
-                          {getPaymentStatusIcon(payment.status)}
-                          <span className="capitalize">{payment.status}</span>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        {payment.paymentMethod.type === "card" && (
-                          <div className="flex items-center gap-2">
-                            <CreditCard className="h-4 w-4" />
-                            <span>
-                              {payment.paymentMethod.brand} ****
-                              {payment.paymentMethod.last4}
-                            </span>
-                          </div>
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" className="h-8 w-8 p-0">
-                              <MoreVertical className="h-4 w-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                            {payment.status === "succeeded" && (
-                              <DropdownMenuItem
-                                onClick={() => handleRefundPayment(payment.id)}
-                              >
-                                Refund Payment
-                              </DropdownMenuItem>
-                            )}
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-          </TabsContent>
-        </Tabs>
-
-        {/* Pagination */}
-        <div className="mt-4 flex items-center justify-between">
-          <p className="text-sm text-gray-400">
-            Page {currentPage} of {totalPages}
-          </p>
-          <div className="flex gap-2">
+            )}
             <Button
               variant="outline"
-              onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-              disabled={currentPage === 1}
+              className="text-blue-500 hover:text-blue-400"
+              onClick={handleExportUsers}
             >
-              Previous
-            </Button>
-            <Button
-              variant="outline"
-              onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-              disabled={currentPage === totalPages}
-            >
-              Next
+              <Download className="h-4 w-4 mr-2" />
+              Export
             </Button>
           </div>
+        </div>
+
+        <div className="relative overflow-x-auto">
+          <Table>
+            <TableHeader>
+              <TableRow className="hover:bg-transparent border-white/10">
+                <TableHead className="text-gray-400 w-[40px]">
+                  <Checkbox
+                    checked={
+                      filteredUsers.length > 0 &&
+                      selectedUsers.length === filteredUsers.length
+                    }
+                    onCheckedChange={toggleSelectAll}
+                    className="border-white/20"
+                  />
+                </TableHead>
+                <TableHead className="text-gray-400">User</TableHead>
+                <TableHead className="text-gray-400">Plan</TableHead>
+                <TableHead className="text-gray-400">Status</TableHead>
+                <TableHead className="text-gray-400">Usage</TableHead>
+                <TableHead className="text-gray-400">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {isLoading ? (
+                <TableRow>
+                  <TableCell
+                    colSpan={6}
+                    className="text-center text-gray-400 py-10"
+                  >
+                    Loading users...
+                  </TableCell>
+                </TableRow>
+              ) : filteredUsers.length === 0 ? (
+                <TableRow>
+                  <TableCell
+                    colSpan={6}
+                    className="text-center text-gray-400 py-10"
+                  >
+                    {searchQuery ? (
+                      <>
+                        No users found matching "
+                        <span className="text-white">{searchQuery}</span>"
+                      </>
+                    ) : (
+                      "No users found"
+                    )}
+                  </TableCell>
+                </TableRow>
+              ) : (
+                filteredUsers.map((user) => (
+                  <TableRow
+                    key={user.id}
+                    className="hover:bg-white/5 border-white/10"
+                  >
+                    <TableCell>
+                      <Checkbox
+                        checked={selectedUsers.includes(user.id)}
+                        onCheckedChange={() => toggleSelectUser(user.id)}
+                        className="border-white/20"
+                      />
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-3">
+                        <div className="h-10 w-10 rounded-full bg-blue-500/10 flex items-center justify-center">
+                          <span className="text-blue-500 font-medium">
+                            {user.name?.[0] || user.email[0].toUpperCase()}
+                          </span>
+                        </div>
+                        <div>
+                          <div className="font-medium text-white">
+                            {user.name || "N/A"}
+                          </div>
+                          <div className="text-sm text-gray-400">
+                            {user.email}
+                          </div>
+                        </div>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <Badge
+                        className={`${
+                          PLAN_STYLES[user.plan]
+                        } border-0 font-medium`}
+                      >
+                        {user.plan}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      <Badge
+                        className={`${
+                          STATUS_STYLES[user.status]
+                        } border-0 font-medium`}
+                      >
+                        {user.status}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      <div className="space-y-1">
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm text-gray-400">
+                            Questions
+                          </span>
+                          <span
+                            className={`text-sm font-medium ${getUsageColor(
+                              getUsagePercentage(
+                                user.usage.questionsUsed,
+                                user.usage.questionsLimit
+                              )
+                            )}`}
+                          >
+                            {user.usage.questionsUsed} /{" "}
+                            {user.usage.questionsLimit}
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm text-gray-400">
+                            Documents
+                          </span>
+                          <span
+                            className={`text-sm font-medium ${getUsageColor(
+                              getUsagePercentage(
+                                user.usage.documentsUsed,
+                                user.usage.documentsLimit
+                              )
+                            )}`}
+                          >
+                            {user.usage.documentsUsed} /{" "}
+                            {user.usage.documentsLimit}
+                          </span>
+                        </div>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            className="h-8 w-8 p-0 hover:bg-white/10 text-gray-400 hover:text-white"
+                          >
+                            <MoreVertical className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent
+                          align="end"
+                          className="w-56 bg-[#1A2035] border-white/10"
+                        >
+                          <DropdownMenuLabel className="text-gray-400">
+                            Actions
+                          </DropdownMenuLabel>
+                          <DropdownMenuSeparator className="bg-white/10" />
+                          <DropdownMenuItem className="hover:bg-white/5 text-gray-200 hover:text-white focus:bg-white/5 focus:text-white">
+                            <Mail className="mr-2 h-4 w-4" />
+                            <span>Email User</span>
+                          </DropdownMenuItem>
+                          <DropdownMenuItem className="hover:bg-white/5 text-gray-200 hover:text-white focus:bg-white/5 focus:text-white">
+                            <CreditCard className="mr-2 h-4 w-4" />
+                            <span>Manage Subscription</span>
+                          </DropdownMenuItem>
+                          {user.status === "ACTIVE" ? (
+                            <DropdownMenuItem
+                              onClick={() => handleAction(user.id, "suspend")}
+                              className="hover:bg-yellow-500/10 text-yellow-500 hover:text-yellow-400 focus:bg-yellow-500/10 focus:text-yellow-400"
+                            >
+                              <Ban className="mr-2 h-4 w-4" />
+                              <span>Suspend User</span>
+                            </DropdownMenuItem>
+                          ) : (
+                            <DropdownMenuItem
+                              onClick={() => handleAction(user.id, "activate")}
+                              className="hover:bg-emerald-500/10 text-emerald-500 hover:text-emerald-400 focus:bg-emerald-500/10 focus:text-emerald-400"
+                            >
+                              <Shield className="mr-2 h-4 w-4" />
+                              <span>Activate User</span>
+                            </DropdownMenuItem>
+                          )}
+                          <DropdownMenuItem
+                            onClick={() => handleAction(user.id, "delete")}
+                            className="hover:bg-red-500/10 text-red-500 hover:text-red-400 focus:bg-red-500/10 focus:text-red-400"
+                          >
+                            <Trash2 className="mr-2 h-4 w-4" />
+                            <span>Delete User</span>
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
         </div>
       </div>
     </Card>

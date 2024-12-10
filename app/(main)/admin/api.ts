@@ -119,7 +119,15 @@ class AdminApiClient {
   private baseUrl = "/api/admin";
 
   private handleUnauthorized() {
-    window.location.href = "/admin-login";
+    const currentPath = window.location.pathname;
+    const loginUrl = new URL("/admin-login", window.location.origin);
+
+    // Only add callbackUrl if we're not already on /admin
+    if (currentPath !== "/admin") {
+      loginUrl.searchParams.set("callbackUrl", currentPath);
+    }
+
+    window.location.href = loginUrl.toString();
   }
 
   private async handleResponse<T>(response: Response): Promise<T> {
@@ -138,13 +146,35 @@ class AdminApiClient {
 
   // Auth Endpoints
   async login(email: string, password: string): Promise<{ token: string }> {
-    const response = await fetch(`${this.baseUrl}/auth/login`, {
+    const response = await fetch(`/api/admin/auth`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
+      credentials: "include",
       body: JSON.stringify({ email, password }),
     });
 
     return this.handleResponse<{ token: string }>(response);
+  }
+
+  async logout(): Promise<void> {
+    const response = await fetch(`/api/admin/auth`, {
+      method: "DELETE",
+      credentials: "include",
+    });
+
+    return this.handleResponse<void>(response);
+  }
+
+  async checkSession(): Promise<boolean> {
+    try {
+      const response = await fetch(`/api/admin/auth`, {
+        credentials: "include",
+      });
+
+      return response.ok;
+    } catch {
+      return false;
+    }
   }
 
   // User Management Endpoints

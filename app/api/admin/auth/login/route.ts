@@ -2,6 +2,38 @@ import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { createToken, verifyToken } from "@/lib/jwt";
 
+// Admin session check endpoint
+export async function GET(request: Request) {
+  const token = cookies().get("admin-token")?.value;
+
+  if (!token) {
+    return NextResponse.json(
+      { error: "No admin session found" },
+      { status: 401 }
+    );
+  }
+
+  try {
+    const isValid = await verifyAdminToken(token);
+    if (!isValid) {
+      return NextResponse.json(
+        { error: "Invalid admin session" },
+        { status: 401 }
+      );
+    }
+
+    return NextResponse.json({
+      success: true,
+      message: "Admin session is valid",
+    });
+  } catch (error) {
+    return NextResponse.json(
+      { error: "Invalid admin session" },
+      { status: 401 }
+    );
+  }
+}
+
 export async function POST(request: Request) {
   try {
     const { email, password } = await request.json();
@@ -17,26 +49,27 @@ export async function POST(request: Request) {
       );
     }
 
-    // Generate admin token using our centralized JWT utility
+    // Generate admin token
     const token = await createToken({
       email,
       role: "ADMIN",
+      isAdmin: true,
     });
 
-    // Create response with token included
+    // Create response with token
     const response = NextResponse.json({
       success: true,
       message: "Admin logged in successfully",
-      token, // Include token in response for client-side storage
+      user: { email, role: "ADMIN" },
     });
 
-    // Set cookie with response
+    // Set secure cookie with absolute path
     response.cookies.set("admin-token", token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
       sameSite: "lax",
       maxAge: 60 * 60 * 24, // 24 hours
-      path: "/",
+      path: "/", // Ensure cookie is available for all paths
     });
 
     return response;
@@ -57,4 +90,23 @@ export async function verifyAdminToken(token: string): Promise<boolean> {
   } catch {
     return false;
   }
+}
+
+// Admin logout endpoint
+export async function DELETE(request: Request) {
+  const response = NextResponse.json({
+    success: true,
+    message: "Admin logged out successfully",
+  });
+
+  // Clear the admin token cookie
+  response.cookies.set("admin-token", "", {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax",
+    maxAge: 0,
+    path: "/",
+  });
+
+  return response;
 }

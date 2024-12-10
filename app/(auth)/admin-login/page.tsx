@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
-import { adminApi } from "@/app/(main)/admin/api";
 import { motion } from "framer-motion";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Lock, Mail, Eye, EyeOff, Shield, AlertCircle } from "lucide-react";
@@ -38,14 +37,24 @@ export default function AdminLogin() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError("");
-
     if (!validateForm()) return;
 
+    setError("");
     setIsLoading(true);
 
     try {
-      await adminApi.login(email, password);
+      const response = await fetch("/api/admin/auth", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ email, password }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || "Invalid credentials");
+      }
 
       if (rememberMe) {
         localStorage.setItem("adminEmail", email);
@@ -58,9 +67,13 @@ export default function AdminLogin() {
         description: "Successfully logged in to admin panel",
       });
 
-      router.push("/admin");
+      const searchParams = new URLSearchParams(window.location.search);
+      const callbackUrl = searchParams.get("callbackUrl") || "/admin";
+      router.replace(callbackUrl);
     } catch (error) {
-      setError("Invalid admin credentials");
+      setError(
+        error instanceof Error ? error.message : "Invalid admin credentials"
+      );
       toast({
         title: "Error",
         description: "Invalid admin credentials",
